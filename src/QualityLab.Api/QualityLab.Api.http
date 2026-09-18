@@ -1,0 +1,6 @@
+@QualityLab.Api_HostAddress = http://localhost:5069
+
+GET {{QualityLab.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
