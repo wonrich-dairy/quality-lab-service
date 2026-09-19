@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using QualityLab.Api.Data;
+using System.Text.Json;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using QualityLab.Api.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +19,10 @@ builder.Services.AddDbContext<QualityLabDbContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 21))));
 
 builder.Services.AddHealthChecks()
-    .AddMySql(connectionString);
+    .AddMySql(connectionString, name: "mysql")
+    .AddCheck<KafkaHealthCheck>(
+        "kafka",
+        failureStatus: HealthStatus.Degraded);   
 
 var app = builder.Build();
 
@@ -52,7 +59,23 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapHealthChecks("/health"); 
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description
+            })
+        }));
+    }
+});
 
 app.Run();
 
