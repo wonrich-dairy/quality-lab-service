@@ -77,6 +77,11 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     }
 });
 
+app.MapGet("/version", () => Results.Ok(new
+{
+    sha = Environment.GetEnvironmentVariable("GIT_SHA") ?? "local"
+}));
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
