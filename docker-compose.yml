@@ -18,6 +18,22 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
 
+  kafka-init:
+    image: apache/kafka:3.8.0
+    container_name: qls-kafka-init
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      echo 'Waiting for Kafka...'
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do sleep 2; done
+      for t in lab.batch.failed lab.batch.cleared; do
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic $$t --partitions 3 --replication-factor 1
+      done
+      echo 'Topics ready'
+      "
+
   quality-lab:
     build: .
     container_name: qls-api
@@ -28,4 +44,5 @@ services:
       ConnectionStrings__QualityLabDb: "${QLS_DB_CONNECTION:?Set QLS_DB_CONNECTION in .env}"
       Kafka__BootstrapServers: "kafka:9092"
     depends_on:
-      - kafka
+      kafka-init:
+        condition: service_completed_successfully

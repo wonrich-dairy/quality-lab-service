@@ -126,6 +126,21 @@ Feature endpoints will be documented here as they are implemented.
 
 ---
 
+## Kafka
+
+| Topic | Event | Published when | Consumer groups |
+|---|---|---|---|
+| `lab.batch.failed` | `BatchFailed` | A batch fails a lab panel and moves to hold | `traceability-service`, `processing-service` |
+| `lab.batch.cleared` | `BatchCleared` | A batch passes all required tests and is released | `traceability-service`, `processing-service` |
+
+- **Message key:** `batchId` (e.g. `WR-2609-0001`), which keeps each batch's events in order
+- **Partitions:** 3 per topic · **Replication factor:** 1 (local)
+- **Naming convention:** `<service>.<entity>.<event>`
+- Topics are created by the `kafka-init` service in `docker-compose.yml`; automatic topic creation is disabled
+- Consumer groups are created automatically when a consuming service first connects with its group ID
+
+---
+
 ## Deployment
 
 | Item | Value |
