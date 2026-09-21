@@ -4,7 +4,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddHealthChecks(); 
+builder.Services.AddHealthChecks()
+    .AddMySql(builder.Configuration.GetConnectionString("QualityLabDb")!);
 
 var app = builder.Build();
 
@@ -13,8 +14,6 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
-app.UseHttpsRedirection();
 
 var summaries = new[]
 {
