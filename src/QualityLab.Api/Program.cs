@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using QualityLab.Api.Application.Panels;
+using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Persistence;
 
@@ -36,6 +37,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 // ── Application services ────────────────────────────────────────────────────
 builder.Services.AddScoped<IChemicalPanelService, ChemicalPanelService>();
+builder.Services.AddScoped<ISensoryEvaluationService, SensoryEvaluationService>();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
 builder.Services.AddProblemDetails();
