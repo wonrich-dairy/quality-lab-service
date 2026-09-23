@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Application.Specs;
+using QualityLab.Api.Application.Determinations;
 using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Persistence;
 
@@ -40,6 +41,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IChemicalPanelService, ChemicalPanelService>();
 builder.Services.AddScoped<ISensoryEvaluationService, SensoryEvaluationService>();
 builder.Services.AddScoped<ISpecThresholdService, SpecThresholdService>();
+builder.Services.AddScoped<IDeterminationService, DeterminationService>();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
 builder.Services.AddProblemDetails();

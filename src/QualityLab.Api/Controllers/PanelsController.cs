@@ -135,7 +135,7 @@ public sealed class PanelsController : ControllerBase
         hasPanels = batch.Panels.Any(),
         latestPanelVersion = batch.Panels.Any() ? batch.Panels.Max(p => p.Version) : 0,
         hasSensory = batch.SensoryEvaluation != null,
-        hasDetermination = batch.Determinations.Any(d => !d.IsSuperseded)
+        hasDetermination = batch.Determinations.Any(d => d.SupersededById == null)
     };
 
     private static object ToPanelDto(ChemicalPanel panel) => new
