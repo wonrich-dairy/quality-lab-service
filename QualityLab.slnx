@@ -3,6 +3,7 @@
     <Project Path="src/QualityLab.Api/QualityLab.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/QualityLab.IntegrationTests/QualityLab.IntegrationTests.csproj" />
     <Project Path="tests/QualityLab.UnitTests/QualityLab.UnitTests.csproj" />
   </Folder>
 </Solution>
