@@ -2,6 +2,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QualityLab.Api.Domain.Entities;
 
+public enum DeterminationResult
+{
+    Pass,
+    Fail
+}
+
 /// <summary>
 /// Pass/Fail determination for a batch (SCRUM-23). Written once; corrections
 /// are made by superseding, not editing. Locks the panel and sensory evaluation.
@@ -13,11 +19,13 @@ public class Determination
     public Guid BatchWorkItemId { get; set; }
     public BatchWorkItem BatchWorkItem { get; set; } = null!;
 
-    /// <summary>Pass or Fail</summary>
-    [MaxLength(10)]
-    public string Result { get; set; } = string.Empty;
+    [MaxLength(100)]
+    public string BatchCode { get; set; } = string.Empty;
 
-    /// <summary>JSON array of coded reason codes for Fail: ["LOW_FAT","PH_OUT_OF_SPEC"]</summary>
+    /// <summary>Pass or Fail</summary>
+    public DeterminationResult Result { get; set; }
+
+    /// <summary>JSON array of coded reason codes for Fail: ["LOW_FAT","HIGH_PH"]</summary>
     [MaxLength(1000)]
     public string? ReasonCodesJson { get; set; }
 
@@ -25,15 +33,15 @@ public class Determination
     [MaxLength(1000)]
     public string? OverrideReason { get; set; }
 
-    /// <summary>Correction note when superseding a previous determination.</summary>
-    [MaxLength(1000)]
-    public string? CorrectionNote { get; set; }
+    /// <summary>Free-text notes.</summary>
+    [MaxLength(2000)]
+    public string? Notes { get; set; }
 
     /// <summary>ID of the determination this one supersedes (null if original).</summary>
     public Guid? SupersededDeterminationId { get; set; }
 
-    /// <summary>True if this determination has been superseded by a later one.</summary>
-    public bool IsSuperseded { get; set; }
+    /// <summary>ID of the determination that superseded this one (null if still active).</summary>
+    public Guid? SupersededById { get; set; }
 
     [MaxLength(100)]
     public string DeterminedBy { get; set; } = string.Empty;
