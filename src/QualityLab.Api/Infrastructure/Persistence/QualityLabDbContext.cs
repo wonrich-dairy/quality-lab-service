@@ -124,15 +124,17 @@ public class QualityLabDbContext : DbContext
         {
             det.ToTable("determinations");
             det.HasKey(d => d.Id);
-            det.Property(d => d.Result).HasMaxLength(10).IsRequired();
+            det.Property(d => d.BatchCode).HasMaxLength(100).IsRequired();
+            det.Property(d => d.Result).HasConversion<string>().HasMaxLength(10).IsRequired();
             det.Property(d => d.ReasonCodesJson).HasMaxLength(1000);
             det.Property(d => d.OverrideReason).HasMaxLength(1000);
-            det.Property(d => d.CorrectionNote).HasMaxLength(1000);
+            det.Property(d => d.Notes).HasMaxLength(2000);
             det.Property(d => d.DeterminedBy).HasMaxLength(100).IsRequired();
             det.Property(d => d.DeterminedAtUtc).HasColumnType("datetime(6)").IsRequired();
             det.Property(d => d.CreatedAtUtc).HasColumnType("datetime(6)").IsRequired();
             det.HasOne(d => d.BatchWorkItem).WithMany(b => b.Determinations).HasForeignKey(d => d.BatchWorkItemId).OnDelete(DeleteBehavior.Cascade);
             det.HasIndex(d => d.BatchWorkItemId).HasDatabaseName("ix_determinations_batch");
+            det.HasIndex(d => d.BatchCode).HasDatabaseName("ix_determinations_batchcode");
         });
 
         // AuditEntry
