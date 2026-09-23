@@ -1,3 +1,4 @@
+
 name: Quality Lab CI/CD
 
 on:
@@ -14,7 +15,9 @@ concurrency:
 env:
   DOTNET_VERSION: "10.0.x"
   API_PROJECT: src/QualityLab.Api/QualityLab.Api.csproj
-  TEST_PROJECT: tests/QualityLab.UnitTests/QualityLab.UnitTests.csproj
+  UNIT_TEST_PROJECT: tests/QualityLab.UnitTests/QualityLab.UnitTests.csproj
+  INTEGRATION_TEST_PROJECT: tests/QualityLab.IntegrationTests/QualityLab.IntegrationTests.csproj
+  COVERAGE_THRESHOLD: "60"
   IMAGE_NAME: quality-lab
 
 jobs:
@@ -22,6 +25,10 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # coverage summary comment
+      checks: write          # test results check (.trx)
     steps:
       - uses: actions/checkout@v4
 
@@ -32,25 +39,73 @@ jobs:
       - name: Restore
         run: |
           dotnet restore ${{ env.API_PROJECT }}
-          dotnet restore ${{ env.TEST_PROJECT }}
+          dotnet restore ${{ env.UNIT_TEST_PROJECT }}
+          dotnet restore ${{ env.INTEGRATION_TEST_PROJECT }}
 
       - name: Build
         run: dotnet build ${{ env.API_PROJECT }} --no-restore -c Release
 
+      # ── Stage: unit tests ───────────────────────────────────────────────────
       - name: Unit tests
         run: >
-          dotnet test ${{ env.TEST_PROJECT }} --no-restore -c Release
+          dotnet test ${{ env.UNIT_TEST_PROJECT }} --no-restore -c Release
+          --settings coverlet.runsettings
+          --collect:"XPlat Code Coverage"
           --logger "trx;LogFileName=unit-tests.trx"
-          --results-directory test-results
+          --results-directory test-results/unit
 
-      - name: Upload test results
+      # ── Stage: integration tests (throwaway MySQL via Testcontainers) ───────
+      - name: Integration tests
+        run: >
+          dotnet test ${{ env.INTEGRATION_TEST_PROJECT }} --no-restore -c Release
+          --settings coverlet.runsettings
+          --collect:"XPlat Code Coverage"
+          --logger "trx;LogFileName=integration-tests.trx"
+          --results-directory test-results/integration
+
+      - name: Publish test results (.trx)
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test results
+          path: test-results/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      # ── Coverage: merge both runs into one report ───────────────────────────
+      - name: Coverage report
+        if: always()
+        uses: danielpalme/ReportGenerator-GitHub-Action@5
+        with:
+          reports: test-results/**/coverage.cobertura.xml
+          targetdir: coverage-report
+          reporttypes: HtmlInline;Cobertura;JsonSummary;MarkdownSummaryGithub
+
+      - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: test-results
+          name: coverage-report
+          path: coverage-report
 
-      # SCRUM-42: integration tests and code coverage go here
+      - name: Coverage summary
+        if: always()
+        run: cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment coverage on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: coverage
+          path: coverage-report/SummaryGithub.md
+
+      - name: Enforce coverage threshold (${{ env.COVERAGE_THRESHOLD }}% lines)
+        run: |
+          COVERAGE=$(jq -r '.summary.linecoverage' coverage-report/Summary.json)
+          echo "Line coverage: ${COVERAGE}% (minimum ${{ env.COVERAGE_THRESHOLD }}%)"
+          awk -v c="$COVERAGE" -v t="${{ env.COVERAGE_THRESHOLD }}" \
+            'BEGIN { if (c+0 < t+0) { print "Coverage below threshold"; exit 1 } }'
+
       # SCRUM-112: dependency scan goes here
 
       - name: Generate idempotent migration script
