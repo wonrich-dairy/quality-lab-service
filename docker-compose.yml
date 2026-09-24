@@ -7,7 +7,13 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__QualityLabDb: "${QLS_DB_CONNECTION:?Set QLS_DB_CONNECTION in .env}"
-      Kafka__BootstrapServers: "kafka:9092"
+      # Broker lives in wonrich-infra on the shared wonrich-net network.
+      # Defaults target the local broker; staging overrides these via .env.
+      Kafka__BootstrapServers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+      Kafka__SecurityProtocol: "${KAFKA_SECURITY_PROTOCOL:-Plaintext}"
+      Kafka__SaslMechanism: "${KAFKA_SASL_MECHANISM:-}"
+      Kafka__SaslUsername: "${KAFKA_SASL_USERNAME:-}"
+      Kafka__SaslPassword: "${KAFKA_SASL_PASSWORD:-}"
     networks: [wonrich-net]
 
 networks:
