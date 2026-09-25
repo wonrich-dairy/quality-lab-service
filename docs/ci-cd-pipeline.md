@@ -63,7 +63,7 @@ The build status appears on every pull request. Branch protection on `develop` a
 
 EF Core migrations are applied by the service on startup; the post-deploy database check confirms they succeeded.
 
-Kafka may report `Degraded` until a hosted broker exists; this does not fail the deployment.
+Kafka is reported but does not block: Degraded does not fail the deployment, so a broker outage cannot stop a deploy.
 
 ---
 

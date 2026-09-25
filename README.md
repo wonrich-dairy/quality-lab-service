@@ -160,7 +160,7 @@ Topics are defined once in `wonrich-infra` (`kafka/topics.env`); see its `docs/k
 | Check | On failure | HTTP |
 |---|---|---|
 | `mysql` | `Unhealthy` (the service cannot work without its database) | 503 |
-| `kafka` | `Degraded` (until a hosted broker exists in Azure) | 200 |
+| `kafka` | `Degraded` (during a broker outage in Azure) | 200 |
 
 Feature endpoints will be documented here as they are implemented.
 

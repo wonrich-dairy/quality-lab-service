@@ -6,7 +6,7 @@
 # Passes only when:
 #   1. /version reports the expected commit (so we are not checking the old container), and
 #   2. /health is not Unhealthy and its "mysql" check is Healthy.
-# Kafka may be Degraded until a hosted broker exists; that does not fail the deployment.
+# Kafka may be Degraded during a broker outage; that does not fail the deployment.
 set -euo pipefail
 
 HOST="${1:?usage: $0 <app-host> [expected-git-sha]}"
