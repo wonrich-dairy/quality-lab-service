@@ -1,23 +1,4 @@
 services:
-  kafka:
-    image: apache/kafka:3.8.0
-    container_name: qls-kafka
-    ports:
-      - "29092:29092"
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-
   quality-lab:
     build: .
     container_name: qls-api
@@ -26,10 +7,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__QualityLabDb: "${QLS_DB_CONNECTION:?Set QLS_DB_CONNECTION in .env}"
+      # Broker lives in wonrich-infra on the shared wonrich-net network.
+      # Defaults target the local broker; staging overrides these via .env.
       Kafka__BootstrapServers: "${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
       Kafka__SecurityProtocol: "${KAFKA_SECURITY_PROTOCOL:-Plaintext}"
       Kafka__SaslMechanism: "${KAFKA_SASL_MECHANISM:-}"
       Kafka__SaslUsername: "${KAFKA_SASL_USERNAME:-}"
       Kafka__SaslPassword: "${KAFKA_SASL_PASSWORD:-}"
-    depends_on:
-      - kafka
+    networks: [wonrich-net]
+
+networks:
+  wonrich-net:
+    external: true
