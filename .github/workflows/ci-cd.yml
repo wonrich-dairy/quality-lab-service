@@ -1,0 +1,125 @@
+name: Quality Lab CI/CD
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  API_PROJECT: src/QualityLab.Api/QualityLab.Api.csproj
+  TEST_PROJECT: tests/QualityLab.UnitTests/QualityLab.UnitTests.csproj
+  IMAGE_NAME: quality-lab
+
+jobs:
+  # ── Build, test, migration script ───────────────────────────────────────────
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: |
+          dotnet restore ${{ env.API_PROJECT }}
+          dotnet restore ${{ env.TEST_PROJECT }}
+
+      - name: Build
+        run: dotnet build ${{ env.API_PROJECT }} --no-restore -c Release
+
+      - name: Unit tests
+        run: >
+          dotnet test ${{ env.TEST_PROJECT }} --no-restore -c Release
+          --logger "trx;LogFileName=unit-tests.trx"
+          --results-directory test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+
+      # SCRUM-42: integration tests and code coverage go here
+      # SCRUM-112: dependency scan goes here
+
+      - name: Generate idempotent migration script
+        env:
+          # Only needed so the app's startup code can build the DbContext.
+          # Script generation never connects to a database.
+          ConnectionStrings__QualityLabDb: "Server=localhost;Database=quality_lab;User=ci;Password=ci;"
+        run: |
+          dotnet tool restore
+          mkdir -p artifacts
+          dotnet ef migrations script --idempotent \
+            --project ${{ env.API_PROJECT }} \
+            --output artifacts/migrations.sql
+
+      - name: Upload migration script
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-script
+          path: artifacts/migrations.sql
+
+      - name: Docker build (validation)
+        run: docker build -t ${{ env.IMAGE_NAME }}:ci .
+
+  # ── Deploy to staging (develop only) ────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to staging
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.APP_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Push-only token scoped to the quality-lab repository (no Azure AD login needed).
+      - name: ACR login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Keep current image as "previous" (rollback target)
+        run: |
+          REPO=${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}
+          if docker pull "$REPO:latest"; then
+            docker tag "$REPO:latest" "$REPO:previous"
+            docker push "$REPO:previous"
+          else
+            echo "No current image yet (first deployment)"
+          fi
+
+      - name: Build image
+        run: |
+          REPO=${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}
+          docker build \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            -t "$REPO:${{ github.sha }}" \
+            -t "$REPO:latest" .
+
+      # SCRUM-112: image scan goes here, before push
+
+      # Pushing :latest triggers the ACR webhook; App Service continuous deployment
+      # pulls the new image and restarts the container.
+      - name: Push image
+        run: docker push --all-tags ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}
+
+      - name: Verify /health (database check + deployed version)
+        run: bash scripts/verify-health.sh "${{ vars.APP_HOST }}" "${{ github.sha }}"
+
+  # SCRUM-43: JMeter performance job goes here (needs: deploy-staging)

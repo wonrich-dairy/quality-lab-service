@@ -11,6 +11,8 @@ RUN dotnet publish src/QualityLab.Api/QualityLab.Api.csproj -c Release -o /app -
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+ARG GIT_SHA=local
+ENV GIT_SHA=$GIT_SHA
 WORKDIR /app
 
 # curl is only used by the container HEALTHCHECK
