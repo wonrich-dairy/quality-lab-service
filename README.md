@@ -179,7 +179,7 @@ Feature endpoints will be documented here as they are implemented.
 | Item | Value |
 |---|---|
 | App Service | `wonrich-quality-lab` (Linux, container) |
-| URL | `https://https://wonrich-quality-lab-bvega5acfkgpb5gx.southeastasia-01.azurewebsites.net` |
+| URL | `https://wonrich-quality-lab-bvega5acfkgpb5gx.southeastasia-01.azurewebsites.net` |
 | Container image | `wonrichacr.azurecr.io/quality-lab` (`latest` + commit SHA tags) |
 | Image pull | System-assigned managed identity with `AcrPull` role |
 

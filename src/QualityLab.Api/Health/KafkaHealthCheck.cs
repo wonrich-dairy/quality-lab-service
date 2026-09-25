@@ -30,6 +30,16 @@ public class KafkaHealthCheck(IConfiguration configuration) : IHealthCheck
                 SocketTimeoutMs = 5000
             };
 
+            if (Enum.TryParse<SecurityProtocol>(configuration["Kafka:SecurityProtocol"], true, out var protocol))
+                adminConfig.SecurityProtocol = protocol;
+            if (Enum.TryParse<SaslMechanism>(configuration["Kafka:SaslMechanism"], true, out var mechanism))
+                adminConfig.SaslMechanism = mechanism;
+            if (!string.IsNullOrWhiteSpace(configuration["Kafka:SaslUsername"]))
+            {
+                adminConfig.SaslUsername = configuration["Kafka:SaslUsername"];
+                adminConfig.SaslPassword = configuration["Kafka:SaslPassword"];
+            }
+
             using var admin = new AdminClientBuilder(adminConfig).Build();
             var metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(5));
             var topicMetadata = metadata.Topics.FirstOrDefault();
