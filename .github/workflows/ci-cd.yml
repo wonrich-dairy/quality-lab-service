@@ -1,4 +1,3 @@
-
 name: Quality Lab CI/CD
 
 on:
@@ -21,7 +20,35 @@ env:
   IMAGE_NAME: quality-lab
 
 jobs:
-  # ── Build, test, migration script ───────────────────────────────────────────
+  # ── SCRUM-112: NuGet dependency audit ───────────────────────────────────────
+  # Separate job so it shows as its own check on the PR and runs in parallel with the build.
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: |
+          dotnet restore ${{ env.API_PROJECT }}
+          dotnet restore ${{ env.UNIT_TEST_PROJECT }}
+          dotnet restore ${{ env.INTEGRATION_TEST_PROJECT }}
+
+      # Direct and transitive packages. High / Critical fail; Moderate / Low are reported only.
+      - name: NuGet vulnerability audit
+        run: >
+          bash scripts/nuget-audit.sh
+          ${{ env.API_PROJECT }}
+          ${{ env.UNIT_TEST_PROJECT }}
+          ${{ env.INTEGRATION_TEST_PROJECT }}
+
+  # ── Build, test, image scan, migration script ───────────────────────────────
   build:
     name: Build and test
     runs-on: ubuntu-latest
@@ -29,6 +56,7 @@ jobs:
       contents: read
       pull-requests: write   # coverage summary comment
       checks: write          # test results check (.trx)
+      security-events: write # image scan results in the Security tab
     steps:
       - uses: actions/checkout@v4
 
@@ -106,8 +134,6 @@ jobs:
           awk -v c="$COVERAGE" -v t="${{ env.COVERAGE_THRESHOLD }}" \
             'BEGIN { if (c+0 < t+0) { print "Coverage below threshold"; exit 1 } }'
 
-      # SCRUM-112: dependency scan goes here
-
       - name: Generate idempotent migration script
         env:
           # Only needed so the app's startup code can build the DbContext.
@@ -129,10 +155,40 @@ jobs:
       - name: Docker build (validation)
         run: docker build -t ${{ env.IMAGE_NAME }}:ci .
 
+      # ── SCRUM-112: container image scan ─────────────────────────────────────
+      # Two passes over the same image. The first reports every severity to the Security tab and
+      # never fails; the second is the gate, High / Critical only. Findings with no fix released
+      # yet are excluded from the gate (nothing to upgrade to); they still appear in the report.
+      # Triaged exceptions go in .trivyignore, each with a reason.
+      - name: Image scan report (all severities)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:ci
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      - name: Upload image scan to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
+
+      - name: Image scan gate (High / Critical)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "1"
+
   # ── Deploy to staging (develop only) ────────────────────────────────────────
   deploy-staging:
     name: Deploy to staging
-    needs: build
+    needs: [dependency-audit, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment:
@@ -167,7 +223,8 @@ jobs:
             -t "$REPO:${{ github.sha }}" \
             -t "$REPO:latest" .
 
-      # SCRUM-112: image scan goes here, before push
+      # No second image scan here: this is the same commit and Dockerfile the build job scanned,
+      # and this job cannot start unless that scan passed.
 
       # Pushing :latest triggers the ACR webhook; App Service continuous deployment
       # pulls the new image and restarts the container.
