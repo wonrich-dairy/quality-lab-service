@@ -10,8 +10,8 @@ This document describes the database used by the Quality Lab Service: where it i
 |---|---|
 | Engine | MySQL 8.0 |
 | Hosting | Azure Database for MySQL – Flexible Server |
-| Server | `mcc-db.mysql.database.azure.com` |
-| Region | Malaysia West |
+| Server | `wonrichmysql.mysql.database.azure.com` |
+| Region | Southeast asia |
 | Database | `quality_lab` |
 | Character set / collation | `utf8mb4` / `utf8mb4_0900_ai_ci` |
 | Application user | `qls_app` |
