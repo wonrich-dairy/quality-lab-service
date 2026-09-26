@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using QualityLab.Api.Domain.Entities;
 using QualityLab.Api.Infrastructure.Persistence;
+using Wonrich.QualityPanel;
 
 namespace QualityLab.Api.Application.Panels;
 
@@ -92,9 +93,9 @@ public sealed class ChemicalPanelService : IChemicalPanelService
 
         if (batch.ProductLine.IsLiquid())
         {
-            correctedClr = CalculateCorrectedClr(request.LactometerReading!.Value, request.TemperatureCelsius!.Value);
-            snf = CalculateSnf(request.FatPercent, correctedClr.Value);
-            ts = CalculateTs(snf.Value, request.FatPercent);
+            correctedClr = QualityPanelCalculator.CalculateCorrectedClr(request.LactometerReading!.Value, request.TemperatureCelsius!.Value);
+            snf = QualityPanelCalculator.CalculateSnf(request.FatPercent, correctedClr.Value);
+            ts = QualityPanelCalculator.CalculateTs(snf.Value, request.FatPercent);
         }
 
         // Determine version (re-test creates a new version)
@@ -187,29 +188,5 @@ public sealed class ChemicalPanelService : IChemicalPanelService
             if (request.TemperatureCelsius.HasValue)
                 throw new InvalidOperationException($"Temperature does not apply to product line {productLine}. Only fat and pH are measured on fermented lines.");
         }
-    }
-
-    /// <summary>
-    /// Corrected CLR = Raw CLR + 0.2 × (Temperature - 27.5)
-    /// Standard correction factor used by dairy industry.
-    /// </summary>
-    internal static decimal CalculateCorrectedClr(decimal rawClr, decimal temperatureCelsius)
-    {
-        return rawClr + 0.2m * (temperatureCelsius - 27.5m);
-    }
-
-    /// <summary>
-    /// SNF = (CLR × 0.25) + (Fat × 0.22) + 0.72
-    /// Same formula as processing service's MockQualityTestClient.
-    /// </summary>
-    internal static decimal CalculateSnf(decimal fatPercent, decimal correctedClr)
-    {
-        return (correctedClr * 0.25m) + (fatPercent * 0.22m) + 0.72m;
-    }
-
-    /// <summary>TS = SNF + Fat</summary>
-    internal static decimal CalculateTs(decimal snf, decimal fatPercent)
-    {
-        return snf + fatPercent;
     }
 }
