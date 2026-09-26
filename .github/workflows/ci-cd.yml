@@ -161,7 +161,7 @@ jobs:
       # yet are excluded from the gate (nothing to upgrade to); they still appear in the report.
       # Triaged exceptions go in .trivyignore, each with a reason.
       - name: Image scan report (all severities)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:ci
           format: sarif
@@ -176,7 +176,7 @@ jobs:
           category: trivy-image
 
       - name: Image scan gate (High / Critical)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:ci
           format: table
