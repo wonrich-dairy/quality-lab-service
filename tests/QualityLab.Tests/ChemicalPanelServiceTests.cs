@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Domain.Entities;
 using QualityLab.Api.Infrastructure.Persistence;
+using Wonrich.QualityPanel;
 
 namespace QualityLab.Tests;
 
@@ -418,7 +419,7 @@ public class ChemicalPanelServiceTests : IDisposable
     public void CalculateCorrectedClr_StandardTemperature()
     {
         // At 27.5°C (reference), correction is 0
-        var result = ChemicalPanelService.CalculateCorrectedClr(29.0m, 27.5m);
+        var result = QualityPanelCalculator.CalculateCorrectedClr(29.0m, 27.5m);
         Assert.Equal(29.0m, result);
     }
 
@@ -426,7 +427,7 @@ public class ChemicalPanelServiceTests : IDisposable
     public void CalculateCorrectedClr_BelowReference()
     {
         // At 25°C: 29 + 0.2*(25-27.5) = 29 - 0.5 = 28.5
-        var result = ChemicalPanelService.CalculateCorrectedClr(29.0m, 25.0m);
+        var result = QualityPanelCalculator.CalculateCorrectedClr(29.0m, 25.0m);
         Assert.Equal(28.5m, result);
     }
 
@@ -435,14 +436,14 @@ public class ChemicalPanelServiceTests : IDisposable
     {
         // SNF = (CLR * 0.25) + (Fat * 0.22) + 0.72
         // SNF = (29 * 0.25) + (3.8 * 0.22) + 0.72 = 7.25 + 0.836 + 0.72 = 8.806
-        var result = ChemicalPanelService.CalculateSnf(3.8m, 29.0m);
+        var result = QualityPanelCalculator.CalculateSnf(3.8m, 29.0m);
         Assert.Equal(8.806m, result);
     }
 
     [Fact]
     public void CalculateTs_SumOfSnfAndFat()
     {
-        var result = ChemicalPanelService.CalculateTs(8.5m, 3.8m);
+        var result = QualityPanelCalculator.CalculateTs(8.5m, 3.8m);
         Assert.Equal(12.3m, result);
     }
 

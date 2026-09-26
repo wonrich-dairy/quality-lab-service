@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\QualityLab.Api\QualityLab.Api.csproj" />
+    <ProjectReference Include="..\..\src\Wonrich.QualityPanel\Wonrich.QualityPanel.csproj" />
   </ItemGroup>
 
 </Project>
