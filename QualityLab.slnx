@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/QualityLab.Api/QualityLab.Api.csproj" />
+    <Project Path="src/Wonrich.QualityPanel/Wonrich.QualityPanel.csproj" />
   </Folder>
 </Solution>
