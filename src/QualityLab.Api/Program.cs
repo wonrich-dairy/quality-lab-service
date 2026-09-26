@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Infrastructure.Auth;
+using QualityLab.Api.Infrastructure.Kafka;
 using QualityLab.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +37,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 
 // ── Application services ────────────────────────────────────────────────────
 builder.Services.AddScoped<IChemicalPanelService, ChemicalPanelService>();
+
+// ── Kafka consumer (ProcessingCompleted → work queue) ──────────────────────
+builder.Services.AddHostedService<ProcessingCompletedConsumer>();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
 builder.Services.AddProblemDetails();
