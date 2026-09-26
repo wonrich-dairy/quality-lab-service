@@ -4,6 +4,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using QualityLab.Api.Health;
+using Prometheus;
+using QualityLab.Api.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +26,13 @@ builder.Services.AddHealthChecks()
         "kafka",
         failureStatus: HealthStatus.Degraded);   
 
+builder.Services.AddHostedService<StageEventListener>();
+QualityLabMetrics.Initialise();
+
 var app = builder.Build();
+
+app.UseCorrelationId();
+app.UseRequestMetrics();
 
 // Apply pending EF Core migrations on startup
 using (var scope = app.Services.CreateScope())
@@ -76,6 +84,8 @@ app.MapHealthChecks("/health", new HealthCheckOptions
         }));
     }
 });
+
+app.MapMetrics();
 
 app.MapGet("/version", () => Results.Ok(new
 {
