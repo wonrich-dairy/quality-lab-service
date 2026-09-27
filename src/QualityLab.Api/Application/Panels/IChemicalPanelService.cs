@@ -35,4 +35,10 @@ public sealed class CreateBatchRequest
     public string DispatchNumber { get; set; } = string.Empty;
     public string ProductLine { get; set; } = string.Empty;
     public string? StoringTankCode { get; set; }
+
+    /// <summary>
+    /// Optional. When set, the batch is treated as having a completed processing run.
+    /// If omitted for a manual batch, defaults to UtcNow so panels can be recorded.
+    /// </summary>
+    public DateTime? CompletionTimeUtc { get; set; }
 }

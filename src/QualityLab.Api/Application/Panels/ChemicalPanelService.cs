@@ -60,6 +60,9 @@ public sealed class ChemicalPanelService : IChemicalPanelService
             DispatchNumber = request.DispatchNumber,
             ProductLine = productLine,
             StoringTankCode = request.StoringTankCode,
+            // QA-20-13: Manual batches default to "completed" so panels can be recorded.
+            // The Kafka consumer sets this from the real event; manual creation uses now.
+            CompletionTimeUtc = request.CompletionTimeUtc ?? now,
             Status = BatchStatus.AwaitingPanel,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
