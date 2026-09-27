@@ -16,8 +16,9 @@ public static class QualityLabAuthExtensions
     {
         var issuer = configuration["Auth:Issuer"] ?? "wonrich-auth";
         var audience = configuration["Auth:Audience"] ?? "wonrich-services";
-        var signingKey = configuration["Auth:SigningKey"]
-            ?? throw new InvalidOperationException("Auth:SigningKey is required. Set it in appsettings, user-secrets or environment.");
+        var signingKey = configuration["Auth:SigningKey"];
+        if (string.IsNullOrWhiteSpace(signingKey))
+            throw new InvalidOperationException("Auth:SigningKey is required and must not be empty. Set it in user-secrets or environment.");
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
