@@ -18,7 +18,7 @@ public class ProcessingCompletedContractTests
     private const string RealProcessingCompletedPayload = """
         {
             "eventId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-            "batchId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "batchId": "265-FM-A",
             "dispatchNumber": "DSP-2026-0915-001",
             "completedAtUtc": "2026-09-15T14:30:00Z",
             "mixingTankCode": "MT-03"
@@ -91,7 +91,7 @@ public class ProcessingCompletedContractTests
 
         Assert.NotNull(evt);
         Assert.Equal(Guid.Parse("f47ac10b-58cc-4372-a567-0e02b2c3d479"), evt.EventId);
-        Assert.Equal(Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890"), evt.BatchId);
+        Assert.Equal("265-FM-A", evt.BatchId);  // batch code string, NOT a GUID
         Assert.Equal("DSP-2026-0915-001", evt.DispatchNumber);
         Assert.Equal(new DateTime(2026, 9, 15, 14, 30, 0, DateTimeKind.Utc), evt.CompletedAtUtc);
         Assert.Equal("MT-03", evt.MixingTankCode);

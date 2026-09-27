@@ -15,7 +15,7 @@ namespace QualityLab.Api.Infrastructure.Kafka;
 ///
 /// Real Processing event contract (SCRUM-68):
 ///   Key   = batch code (e.g. "265-FM-A")
-///   Header "eventType" = "ProcessingCompleted"
+///   Header "eventType" = "ProcessingCompletedEvent"
 ///   Payload (camelCase JSON):
 ///     { "eventId", "batchId", "dispatchNumber", "completedAtUtc", "mixingTankCode", ... }
 ///   Product line is derived from the batch code middle segment (265-FM-A → FM).
@@ -326,7 +326,7 @@ public sealed class ProcessingCompletedConsumer : BackgroundService
     internal sealed class ProcessingCompletedEvent
     {
         public Guid? EventId { get; set; }
-        public Guid? BatchId { get; set; }
+        public string? BatchId { get; set; }   // Processing puts batch code here ("265-FM-A"), not a GUID
         public string? DispatchNumber { get; set; }
         public DateTime? CompletedAtUtc { get; set; }
         public string? MixingTankCode { get; set; }
