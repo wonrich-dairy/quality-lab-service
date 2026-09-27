@@ -26,5 +26,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Wonrich.QualityPanel\Wonrich.QualityPanel.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="QualityLab.Tests" />
+  </ItemGroup>
 
 </Project>
+

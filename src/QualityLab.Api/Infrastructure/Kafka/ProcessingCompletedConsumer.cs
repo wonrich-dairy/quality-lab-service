@@ -76,10 +76,10 @@ public sealed class ProcessingCompletedConsumer : BackgroundService
                 // Read eventType from Kafka headers (Processing puts it there, not in the body)
                 var eventType = GetHeaderValue(cr.Message.Headers, EventTypeHeader);
 
-                // Only process "ProcessingCompleted" events
-                if (!string.Equals(eventType, "ProcessingCompleted", StringComparison.OrdinalIgnoreCase))
+                // Only process ProcessingCompletedEvent (real header value from @event.GetType().Name)
+                if (!IsProcessingCompletedEvent(eventType))
                 {
-                    // Not our event — commit and move on
+                    _logger.LogDebug("Skipping event type {EventType} on {Topic}", eventType, cr.Topic);
                     consumer.Commit(cr);
                     continue;
                 }
@@ -202,7 +202,7 @@ public sealed class ProcessingCompletedConsumer : BackgroundService
         {
             Id = Guid.NewGuid(),
             BatchCode = batchCode,
-            DispatchNumber = evt?.DispatchNumber ?? $"DSP-{batchCode}",
+            DispatchNumber = string.IsNullOrWhiteSpace(evt?.DispatchNumber) ? $"DSP-{batchCode}" : evt.DispatchNumber,
             ProductLine = productLine.Value,
             StoringTankCode = evt?.MixingTankCode,
             CompletionTimeUtc = evt?.CompletedAtUtc ?? now,
@@ -220,6 +220,14 @@ public sealed class ProcessingCompletedConsumer : BackgroundService
             "Batch {BatchCode} ({ProductLine}) added to work queue from ProcessingCompleted event",
             batchCode, productLine);
     }
+
+    /// <summary>
+    /// Checks whether a Kafka header eventType value matches the Processing Service's
+    /// completion event. Processing's OutboxWriter sets this header to
+    /// <c>@event.GetType().Name</c>, which resolves to <c>"ProcessingCompletedEvent"</c>.
+    /// </summary>
+    internal static bool IsProcessingCompletedEvent(string? eventType) =>
+        string.Equals(eventType, "ProcessingCompletedEvent", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Derives the <see cref="ProductLine"/> from a batch code.

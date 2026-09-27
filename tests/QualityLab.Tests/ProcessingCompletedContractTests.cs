@@ -124,4 +124,44 @@ public class ProcessingCompletedContractTests
         Assert.Null(evt.CompletedAtUtc);
         Assert.Null(evt.MixingTankCode);
     }
+
+    // ── IsProcessingCompletedEvent predicate tests ─────────────────────────
+
+    [Fact]
+    public void IsProcessingCompletedEvent_RealHeaderValue_ReturnsTrue()
+    {
+        // Processing's OutboxWriter: ["eventType"] = @event.GetType().Name → "ProcessingCompletedEvent"
+        Assert.True(ProcessingCompletedConsumer.IsProcessingCompletedEvent("ProcessingCompletedEvent"));
+    }
+
+    [Fact]
+    public void IsProcessingCompletedEvent_CaseInsensitive_ReturnsTrue()
+    {
+        Assert.True(ProcessingCompletedConsumer.IsProcessingCompletedEvent("processingcompletedevent"));
+    }
+
+    [Fact]
+    public void IsProcessingCompletedEvent_WrongValue_ReturnsFalse()
+    {
+        // "ProcessingCompleted" (without "Event" suffix) was the old broken value
+        Assert.False(ProcessingCompletedConsumer.IsProcessingCompletedEvent("ProcessingCompleted"));
+    }
+
+    [Fact]
+    public void IsProcessingCompletedEvent_OtherStageEvent_ReturnsFalse()
+    {
+        Assert.False(ProcessingCompletedConsumer.IsProcessingCompletedEvent("ProcessingStageStartedEvent"));
+    }
+
+    [Fact]
+    public void IsProcessingCompletedEvent_Null_ReturnsFalse()
+    {
+        Assert.False(ProcessingCompletedConsumer.IsProcessingCompletedEvent(null));
+    }
+
+    [Fact]
+    public void IsProcessingCompletedEvent_Empty_ReturnsFalse()
+    {
+        Assert.False(ProcessingCompletedConsumer.IsProcessingCompletedEvent(""));
+    }
 }
