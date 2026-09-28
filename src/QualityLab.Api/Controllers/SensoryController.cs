@@ -31,7 +31,7 @@ public sealed class SensoryController : ControllerBase
         {
             var userId = User.UserId() ?? User.Identity?.Name ?? "unknown";
             var evaluation = await _sensoryService.RecordEvaluationAsync(batchCode, request, userId, ct);
-            return Ok(ToDto(evaluation));
+            return CreatedAtAction(nameof(GetEvaluation), new { batchCode }, SensoryMappers.ToDto(evaluation));
         }
         catch (InvalidOperationException ex)
         {
@@ -48,7 +48,7 @@ public sealed class SensoryController : ControllerBase
         {
             var userId = User.UserId() ?? User.Identity?.Name ?? "unknown";
             var evaluation = await _sensoryService.UpdateEvaluationAsync(batchCode, request, userId, ct);
-            return Ok(ToDto(evaluation));
+            return Ok(SensoryMappers.ToDto(evaluation));
         }
         catch (InvalidOperationException ex)
         {
@@ -65,25 +65,7 @@ public sealed class SensoryController : ControllerBase
         if (evaluation == null)
             return NotFound(new { message = $"No sensory evaluation for batch '{batchCode}'." });
 
-        return Ok(ToDto(evaluation));
+        return Ok(SensoryMappers.ToDto(evaluation));
     }
-
-    private static object ToDto(SensoryEvaluation e) => new
-    {
-        id = e.Id,
-        batchWorkItemId = e.BatchWorkItemId,
-        taste = e.Taste.ToString(),
-        tasteNote = e.TasteNote,
-        smell = e.Smell.ToString(),
-        smellNote = e.SmellNote,
-        colour = e.Colour.ToString(),
-        colourNote = e.ColourNote,
-        appearance = e.Appearance.ToString(),
-        appearanceNote = e.AppearanceNote,
-        texture = e.Texture?.ToString(),
-        textureNote = e.TextureNote,
-        evaluatedBy = e.EvaluatedBy,
-        evaluatedAtUtc = e.EvaluatedAtUtc,
-        isLocked = e.IsLocked
-    };
 }
+
