@@ -55,14 +55,15 @@ jobs:
 
       - name: Generate idempotent migration script
         env:
-          # Only needed so the app's startup code can build the DbContext.
-          # Script generation never connects to a database.
+          # Placeholders so EF can build the DbContext. Script generation never connects.
           ConnectionStrings__QualityLabDb: "Server=localhost;Database=quality_lab;User=ci;Password=ci;"
+          QLS_DB_CONNECTION: "Server=localhost;Database=quality_lab;User=ci;Password=ci;"
         run: |
           dotnet tool restore
           mkdir -p artifacts
           dotnet ef migrations script --idempotent \
             --project ${{ env.API_PROJECT }} \
+            --context QualityLabDbContext \
             --output artifacts/migrations.sql
 
       - name: Upload migration script
