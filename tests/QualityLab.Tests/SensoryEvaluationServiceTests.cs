@@ -272,4 +272,76 @@ public class SensoryEvaluationServiceTests : IDisposable
         var result = SensoryEvaluationService.ParseGrade(grade);
         Assert.True(Enum.IsDefined(result));
     }
+
+    // ── QA-21-02: Missing rejection tests ─────────────────────────────────
+
+    [Fact]
+    public async Task RecordEvaluation_MissingTaste_ThrowsNamingAttribute()
+    {
+        await SeedBatch(ProductLine.FM, "MISS-TASTE");
+        var req = AllAcceptable();
+        req.Taste = "";  // omitted/empty
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RecordEvaluationAsync("MISS-TASTE", req, "tech-1", CancellationToken.None));
+
+        Assert.Contains("taste", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("required", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UpdateEvaluation_InvalidGrade_ThrowsAndChangesNothing()
+    {
+        await SeedBatch(ProductLine.FM, "PUT-BAD");
+        await _service.RecordEvaluationAsync("PUT-BAD", AllAcceptable(), "tech-1", CancellationToken.None);
+        var req = AllAcceptable();
+        req.Taste = "Excellent";  // invalid grade
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateEvaluationAsync("PUT-BAD", req, "tech-2", CancellationToken.None));
+
+        // Entity unchanged — validate-before-mutate guarantee
+        var eval = await _db.SensoryEvaluations.FirstAsync(e => e.BatchWorkItem.BatchCode == "PUT-BAD");
+        Assert.Equal(SensoryGrade.Acceptable, eval.Taste);
+    }
+
+    [Fact]
+    public async Task UpdateEvaluation_BorderlineWithoutNote_Throws()
+    {
+        await SeedBatch(ProductLine.FM, "PUT-NONOTE");
+        await _service.RecordEvaluationAsync("PUT-NONOTE", AllAcceptable(), "tech-1", CancellationToken.None);
+        var req = AllAcceptable();
+        req.Smell = "Unacceptable";  // downgraded, no note
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateEvaluationAsync("PUT-NONOTE", req, "tech-2", CancellationToken.None));
+        Assert.Contains("note is required", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UpdateEvaluation_FermentedWithoutTexture_Throws()
+    {
+        await SeedBatch(ProductLine.SY, "PUT-TEX");
+        await _service.RecordEvaluationAsync("PUT-TEX", AllAcceptable("Acceptable"), "tech-1", CancellationToken.None);
+        var req = AllAcceptable();  // Texture = null — required on SY
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UpdateEvaluationAsync("PUT-TEX", req, "tech-2", CancellationToken.None));
+        Assert.Contains("Texture is required", ex.Message);
+    }
+
+    // ── QA-21-04: Texture rejected on liquid lines ────────────────────────
+
+    [Fact]
+    public async Task RecordEvaluation_TextureOnLiquidLine_Throws()
+    {
+        await SeedBatch(ProductLine.FM, "LIQ-TEX");
+        var req = AllAcceptable();
+        req.Texture = "Acceptable";  // FM is liquid — texture doesn't apply
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RecordEvaluationAsync("LIQ-TEX", req, "tech-1", CancellationToken.None));
+        Assert.Contains("does not apply", ex.Message);
+    }
 }
+
