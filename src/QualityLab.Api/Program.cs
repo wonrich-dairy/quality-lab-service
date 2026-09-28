@@ -127,12 +127,21 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
         await context.Response.WriteAsync(JsonSerializer.Serialize(new
         {
             status = report.Status.ToString(),
-            checks = report.Entries.ToDictionary(
-                entry => entry.Key,
-                entry => new { status = entry.Value.Status.ToString(), description = entry.Value.Description }),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description
+            })
         }));
     }
 }).AllowAnonymous();
+
+// Deployed commit — the pipeline waits for this to show the new SHA (SCRUM-109)
+app.MapGet("/version", () => Results.Ok(new
+{
+    sha = Environment.GetEnvironmentVariable("GIT_SHA") ?? "local"
+})).AllowAnonymous();
 
 // Root descriptor
 app.MapGet("/", (IWebHostEnvironment env) => Results.Ok(new
@@ -140,6 +149,7 @@ app.MapGet("/", (IWebHostEnvironment env) => Results.Ok(new
     service = "Wonrich Quality Lab Service",
     environment = env.EnvironmentName,
     health = "/health",
+    version = "/version",
     swagger = env.IsProduction() ? null : "/swagger",
 })).AllowAnonymous();
 
@@ -148,3 +158,4 @@ app.MapControllers();
 app.Run();
 
 public partial class Program;
+
