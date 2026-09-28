@@ -148,6 +148,11 @@ public sealed class SensoryEvaluationService : ISensoryEvaluationService
                 throw new InvalidOperationException("Texture is required for fermented product lines (SY, SK, DY, CD).");
             ValidateAttribute("texture", request.Texture, request.TextureNote);
         }
+        else if (!string.IsNullOrWhiteSpace(request.Texture))
+        {
+            // QA-21-04: mirror of lactometer rejection — texture does not apply to liquid lines
+            throw new InvalidOperationException($"Texture does not apply to product line '{productLine}'. Only fermented lines (SY, SK, DY, CD) have texture.");
+        }
     }
 
     internal static void ValidateAttribute(string name, string? grade, string? note)
