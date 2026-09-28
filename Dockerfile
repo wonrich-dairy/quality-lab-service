@@ -4,6 +4,7 @@ WORKDIR /src
 
 # Restore first, from the project file only, so this layer is cached until dependencies change
 COPY src/QualityLab.Api/QualityLab.Api.csproj src/QualityLab.Api/
+COPY src/Wonrich.QualityPanel/Wonrich.QualityPanel.csproj src/Wonrich.QualityPanel/
 RUN dotnet restore src/QualityLab.Api/QualityLab.Api.csproj
 
 COPY src/ src/
@@ -11,6 +12,8 @@ RUN dotnet publish src/QualityLab.Api/QualityLab.Api.csproj -c Release -o /app -
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
+ARG GIT_SHA=local
+ENV GIT_SHA=$GIT_SHA
 WORKDIR /app
 
 # curl is only used by the container HEALTHCHECK

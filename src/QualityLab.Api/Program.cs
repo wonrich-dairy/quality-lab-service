@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Application.Sensory;
+using QualityLab.Api.Health;
 using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Kafka;
 using QualityLab.Api.Infrastructure.Persistence;
@@ -21,7 +24,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException(
         "ConnectionStrings:QualityLabDb is not configured. "
-        + "Set it in appsettings.Development.json, user-secrets, or the QLS_DB_CONNECTION env var.");
+        + "Set it in .env (Docker), user secrets (dotnet run) or App Service settings (Azure).");
 }
 
 var serverVersion = new MySqlServerVersion(new Version(8, 0, 21));
@@ -44,9 +47,11 @@ builder.Services.AddScoped<ISensoryEvaluationService, SensoryEvaluationService>(
 builder.Services.AddHostedService<ProcessingCompletedConsumer>();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
+// mysql failing = Unhealthy (deploy fails); Kafka failing = Degraded (deploy still passes).
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks()
-    .AddMySql(connectionString);
+    .AddMySql(connectionString, name: "mysql")
+    .AddCheck<KafkaHealthCheck>("kafka", failureStatus: HealthStatus.Degraded);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -118,8 +123,10 @@ app.UseQualityLabCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Health is anonymous (container runtime probes)
-app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+// Health is anonymous (container runtime probes and the post-deploy check).
+// Shape { status, checks: [ { name, status, description } ] } is what
+// scripts/verify-health.sh and HealthEndpointTests read — keep it.
+app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
     {
@@ -158,4 +165,3 @@ app.MapControllers();
 app.Run();
 
 public partial class Program;
-
