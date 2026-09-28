@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QualityLab.Api.Application.Panels;
+using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Domain.Entities;
 using QualityLab.Api.Shared.Authorization;
 
@@ -31,7 +32,7 @@ public sealed class PanelsController : ControllerBase
         return Ok(items.Select(ToBatchDto));
     }
 
-    /// <summary>Get a batch by its batch code.</summary>
+    /// <summary>Get a batch by its batch code — composite response with chemical panel + sensory (DOD 3).</summary>
     [HttpGet("batch/{batchCode}")]
     [Authorize(Roles = $"{WonrichRoles.QualityAnalyst},{WonrichRoles.SystemAdministrator},{WonrichRoles.ProductionManager},{WonrichRoles.ProcessingTechnician}")]
     public async Task<ActionResult<object>> GetBatch(string batchCode, CancellationToken ct)
@@ -40,7 +41,26 @@ public sealed class PanelsController : ControllerBase
         if (batch == null)
             return NotFound(new { message = $"Batch '{batchCode}' not found." });
 
-        return Ok(ToBatchDto(batch));
+        var latestPanel = batch.Panels.OrderByDescending(p => p.Version).FirstOrDefault();
+
+        return Ok(new
+        {
+            id = batch.Id,
+            batchCode = batch.BatchCode,
+            dispatchNumber = batch.DispatchNumber,
+            productLine = batch.ProductLine.ToString(),
+            storingTankCode = batch.StoringTankCode,
+            status = batch.Status.ToString(),
+            completionTimeUtc = batch.CompletionTimeUtc,
+            createdAtUtc = batch.CreatedAtUtc,
+            updatedAtUtc = batch.UpdatedAtUtc,
+            hasPanels = batch.Panels.Any(),
+            latestPanelVersion = batch.Panels.Any() ? batch.Panels.Max(p => p.Version) : 0,
+            hasSensory = batch.SensoryEvaluation != null,
+            hasDetermination = batch.Determinations.Any(d => !d.IsSuperseded),
+            latestPanel = latestPanel == null ? null : ToPanelDto(latestPanel),
+            sensoryEvaluation = batch.SensoryEvaluation == null ? null : SensoryMappers.ToDto(batch.SensoryEvaluation)
+        });
     }
 
     /// <summary>Create a batch in the work queue (normally from ProcessingCompleted event, or manual).</summary>
