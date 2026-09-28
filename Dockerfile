@@ -4,6 +4,7 @@ WORKDIR /src
 
 # Restore first, from the project file only, so this layer is cached until dependencies change
 COPY src/QualityLab.Api/QualityLab.Api.csproj src/QualityLab.Api/
+COPY src/Wonrich.QualityPanel/Wonrich.QualityPanel.csproj src/Wonrich.QualityPanel/
 RUN dotnet restore src/QualityLab.Api/QualityLab.Api.csproj
 
 COPY src/ src/
