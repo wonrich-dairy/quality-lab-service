@@ -79,8 +79,9 @@ public sealed class DeterminationService : IDeterminationService
 
         _db.Determinations.Add(determination);
 
-        // Lock sensory evaluation
+        // Lock sensory evaluation and chemical panel (QA-21-06)
         sensory.IsLocked = true;
+        panel.IsLocked = true;
 
         // Update batch status
         batch.Status = request.Result == DeterminationResult.Pass
