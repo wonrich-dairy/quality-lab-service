@@ -3,4 +3,7 @@
     <Project Path="src/QualityLab.Api/QualityLab.Api.csproj" />
     <Project Path="src/Wonrich.QualityPanel/Wonrich.QualityPanel.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QualityLab.UnitTests/QualityLab.UnitTests.csproj" />
+  </Folder>
 </Solution>
