@@ -160,7 +160,7 @@ Topics are defined once in `wonrich-infra` (`kafka/topics.env`); see its `docs/k
 | Check | On failure | HTTP |
 |---|---|---|
 | `mysql` | `Unhealthy` (the service cannot work without its database) | 503 |
-| `kafka` | `Degraded` (until a hosted broker exists in Azure) | 200 |
+| `kafka` | `Degraded` (during a broker outage in Azure) | 200 |
 
 Feature endpoints will be documented here as they are implemented.
 
@@ -179,7 +179,7 @@ Feature endpoints will be documented here as they are implemented.
 | Item | Value |
 |---|---|
 | App Service | `wonrich-quality-lab` (Linux, container) |
-| URL | `https://https://wonrich-quality-lab-bvega5acfkgpb5gx.southeastasia-01.azurewebsites.net` |
+| URL | `https://wonrich-quality-lab-bvega5acfkgpb5gx.southeastasia-01.azurewebsites.net` |
 | Container image | `wonrichacr.azurecr.io/quality-lab` (`latest` + commit SHA tags) |
 | Image pull | System-assigned managed identity with `AcrPull` role |
 

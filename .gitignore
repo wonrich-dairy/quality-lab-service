@@ -483,3 +483,4 @@ $RECYCLE.BIN/
 .env
 test-results/
 coverage-report/
+/coverage-report

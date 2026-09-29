@@ -12,8 +12,7 @@ namespace QualityLab.IntegrationTests;
 /// </summary>
 public class QualityLabApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly MySqlContainer _mysql = new MySqlBuilder()
-        .WithImage("mysql:8.0")
+    private readonly MySqlContainer _mysql = new MySqlBuilder("mysql:8.0")
         .WithDatabase("quality_lab")
         .WithUsername("qls_app")
         .WithPassword("qls_test_pwd")
@@ -30,6 +29,7 @@ public class QualityLabApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
             {
                 ["ConnectionStrings:QualityLabDb"] = _mysql.GetConnectionString(),
                 // No broker in CI: the Kafka check reports Degraded, which is expected.
+                ["Auth:SigningKey"] = "integration-tests-only-signing-key-0123456789abcdef0123456789",
                 ["Kafka:BootstrapServers"] = "localhost:1",
                 ["Kafka:Topics:BatchDeterminations"] = "wonrich.quality-lab.batch-determinations.v1"
             }));
