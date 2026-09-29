@@ -8,6 +8,7 @@ using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Health;
 using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Kafka;
+using QualityLab.Api.Infrastructure.Sync;
 using QualityLab.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,9 @@ builder.Services.AddScoped<ISensoryEvaluationService, SensoryEvaluationService>(
 
 // ── Kafka consumer (ProcessingCompleted → work queue) ──────────────────────
 builder.Services.AddHostedService<ProcessingCompletedConsumer>();
+
+// ── Processing DB sync (direct polling — works without Kafka) ───────────────
+builder.Services.AddHostedService<ProcessingDbSyncService>();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
 // mysql failing = Unhealthy (deploy fails); Kafka failing = Degraded (deploy still passes).
