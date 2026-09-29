@@ -40,6 +40,7 @@ jobs:
           dotnet restore ${{ env.API_PROJECT }}
           dotnet restore ${{ env.UNIT_TEST_PROJECT }}
           dotnet restore ${{ env.INTEGRATION_TEST_PROJECT }}
+          dotnet restore ${{ env.FEATURE_TEST_PROJECT }}
 
       # Direct and transitive packages. High / Critical fail; Moderate / Low are reported only.
       - name: NuGet vulnerability audit
@@ -48,6 +49,7 @@ jobs:
           ${{ env.API_PROJECT }}
           ${{ env.UNIT_TEST_PROJECT }}
           ${{ env.INTEGRATION_TEST_PROJECT }}
+          ${{ env.FEATURE_TEST_PROJECT }}
 
   # ── Build, test, image scan, migration script ───────────────────────────────
   build:
