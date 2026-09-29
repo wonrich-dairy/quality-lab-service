@@ -30,7 +30,7 @@ public sealed class RequestMetricsMiddleware(RequestDelegate next, ILogger<Reque
         finally
         {
             var elapsed = Stopwatch.GetElapsedTime(started);
-            var method = context.Request.Method;
+            var method = SanitizeForLog(context.Request.Method);
             var endpoint = EndpointLabel(context);
             var code = status.ToString(CultureInfo.InvariantCulture);
 
@@ -42,6 +42,16 @@ public sealed class RequestMetricsMiddleware(RequestDelegate next, ILogger<Reque
             logger.LogInformation("HTTP {Method} {Endpoint} responded {StatusCode} in {ElapsedMs} ms",
                 method, endpoint, status, (long)elapsed.TotalMilliseconds);
         }
+    }
+
+    private static string SanitizeForLog(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value
+            .Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Replace("\n", string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>

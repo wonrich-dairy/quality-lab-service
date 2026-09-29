@@ -19,9 +19,11 @@ public sealed partial class CorrelationIdMiddleware(RequestDelegate next, ILogge
 
         // Anything else is replaced rather than logged: a header value ends up verbatim in every log
         // line, so accepting arbitrary text would let a caller forge or break log entries.
-        var correlationId = incoming is not null && SafeId().IsMatch(incoming)
+        var correlationId = (incoming is not null && SafeId().IsMatch(incoming)
             ? incoming
-            : Guid.NewGuid().ToString("N");
+            : Guid.NewGuid().ToString("N"))
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
 
         context.Items[HeaderName] = correlationId;
         context.Response.Headers[HeaderName] = correlationId;
