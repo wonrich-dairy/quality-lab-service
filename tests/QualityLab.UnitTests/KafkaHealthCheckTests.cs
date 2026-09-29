@@ -31,7 +31,7 @@ public class KafkaHealthCheckTests
     {
         var check = new KafkaHealthCheck(Config(new()
         {
-            ["Kafka:BootstrapServers"] = "localhost:1",
+            ["Kafka:BootstrapServers"] = "localhost:1",   // nothing listens here
             ["Kafka:Topics:BatchDeterminations"] = "wonrich.quality-lab.batch-determinations.v1"
         }));
 

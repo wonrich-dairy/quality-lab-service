@@ -41,7 +41,7 @@ public sealed class StageEventListener(IConfiguration configuration, ILogger<Sta
 
             var bootstrap = configuration["Kafka:BootstrapServers"];
             var topic = configuration["Kafka:Topics:StageEvents"];
-            var group = configuration["Kafka:ConsumerGroups:StageEvents"] ?? "quality-lab-stage-events";
+            var group = configuration["Kafka:StageEventListener:ConsumerGroup"] ?? "quality-lab-observability";
             if (string.IsNullOrWhiteSpace(bootstrap) || string.IsNullOrWhiteSpace(topic))
             {
                 logger.LogWarning("Stage event listener not started: Kafka:BootstrapServers or Kafka:Topics:StageEvents is not configured");
