@@ -146,7 +146,79 @@ public class PanelsIntegrationTests : IClassFixture<PanelsIntegrationTests.Quali
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // ── QA-21-01: Composite batch endpoint (DOD 3) ────────────────────────
+
+    [Fact]
+    public async Task GetBatch_Empty_ReturnsNullPanelAndSensory()
+    {
+        using var client = CreateAuthenticatedClient(WonrichRoles.QualityAnalyst);
+        var batchCode = $"COMP-FM-{Guid.NewGuid().ToString()[..4]}";
+        await client.PostAsJsonAsync("/api/panels/batch", new
+        {
+            batchCode,
+            dispatchNumber = $"DSP-{batchCode}",
+            productLine = "FM",
+            storingTankCode = "ST-01"
+        });
+
+        var response = await client.GetAsync($"/api/panels/batch/{batchCode}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"latestPanel\":null", body);
+        Assert.Contains("\"sensoryEvaluation\":null", body);
+        Assert.Contains("\"hasPanels\":false", body);
+        Assert.Contains("\"hasSensory\":false", body);
+    }
+
+    [Fact]
+    public async Task GetBatch_WithPanelAndSensory_ReturnsComposite()
+    {
+        using var client = CreateAuthenticatedClient(WonrichRoles.QualityAnalyst);
+        var batchCode = $"FULL-FM-{Guid.NewGuid().ToString()[..4]}";
+
+        // Create batch
+        await client.PostAsJsonAsync("/api/panels/batch", new
+        {
+            batchCode,
+            dispatchNumber = $"DSP-{batchCode}",
+            productLine = "FM",
+            storingTankCode = "ST-01"
+        });
+
+        // Record chemical panel
+        await client.PostAsJsonAsync($"/api/panels/{batchCode}", new
+        {
+            fatPercent = 3.8,
+            lactometerReading = 29.0,
+            temperatureCelsius = 27.0,
+            ph = 6.7
+        });
+
+        // Record sensory evaluation
+        await client.PostAsJsonAsync($"/api/panels/{batchCode}/sensory", new
+        {
+            taste = "Acceptable",
+            smell = "Acceptable",
+            colour = "Acceptable",
+            appearance = "Acceptable"
+        });
+
+        // Get composite batch
+        var response = await client.GetAsync($"/api/panels/batch/{batchCode}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadAsStringAsync();
+        // Verify chemical panel present
+        Assert.Contains("\"hasPanels\":true", body);
+        Assert.Contains("\"snf\":", body);  // latestPanel includes derived values
+        // Verify sensory present
+        Assert.Contains("\"hasSensory\":true", body);
+        Assert.Contains("\"taste\":\"Acceptable\"", body);
+    }
+
     // ── Custom WebApplicationFactory ───────────────────────────────────────────
+
 
     public class QualityLabWebFactory : WebApplicationFactory<Program>
     {
