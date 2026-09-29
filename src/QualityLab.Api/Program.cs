@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Kafka;
+using QualityLab.Api.Infrastructure.Sync;
 using QualityLab.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,9 @@ builder.Services.AddScoped<IChemicalPanelService, ChemicalPanelService>();
 
 // ── Kafka consumer (ProcessingCompleted → work queue) ──────────────────────
 builder.Services.AddHostedService<ProcessingCompletedConsumer>();
+
+// ── Processing DB sync (direct polling — works without Kafka) ───────────────
+builder.Services.AddHostedService<ProcessingDbSyncService>();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
 builder.Services.AddProblemDetails();
