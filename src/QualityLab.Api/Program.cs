@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Prometheus;
 using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Application.Specs;
@@ -11,6 +12,7 @@ using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Kafka;
 using QualityLab.Api.Infrastructure.Sync;
 using QualityLab.Api.Infrastructure.Persistence;
+using QualityLab.Api.Observability;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +53,13 @@ builder.Services.AddHostedService<ProcessingCompletedConsumer>();
 
 // ── Processing DB sync (direct polling — works without Kafka) ───────────────
 builder.Services.AddHostedService<ProcessingDbSyncService>();
+
+// ── Observability (SCRUM-111) ───────────────────────────────────────────────
+// Passive listener on Processing's stage events: records correlation IDs across the
+// Kafka hop. Own consumer group, never commits offsets, so it takes no messages from
+// ProcessingCompletedConsumer. Disabled with Kafka:StageEventListener:Enabled=false.
+builder.Services.AddHostedService<StageEventListener>();
+QualityLabMetrics.Initialise();
 
 // ── Health + Swagger ────────────────────────────────────────────────────────
 // mysql failing = Unhealthy (deploy fails); Kafka failing = Degraded (deploy still passes).
@@ -93,6 +102,11 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+// ── Observability first: every later log line carries the correlation ID, and every
+// request is measured, including ones rejected by authentication (SCRUM-111).
+app.UseCorrelationId();
+app.UseRequestMetrics();
 
 // ── Auto-migrate in Dev/Staging ─────────────────────────────────────────────
 if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
@@ -150,6 +164,9 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     }
 }).AllowAnonymous();
 
+// Prometheus scrape endpoint — anonymous so Prometheus needs no token (SCRUM-111)
+app.MapMetrics().AllowAnonymous();
+
 // Deployed commit — the pipeline waits for this to show the new SHA (SCRUM-109)
 app.MapGet("/version", () => Results.Ok(new
 {
@@ -163,6 +180,7 @@ app.MapGet("/", (IWebHostEnvironment env) => Results.Ok(new
     environment = env.EnvironmentName,
     health = "/health",
     version = "/version",
+    metrics = "/metrics",
     swagger = env.IsProduction() ? null : "/swagger",
 })).AllowAnonymous();
 
