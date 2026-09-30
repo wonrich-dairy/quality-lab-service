@@ -481,4 +481,6 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 .env
+test-results/
+coverage-report/
 /coverage-report

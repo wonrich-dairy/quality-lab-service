@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using QualityLab.Api.Domain.Entities;
 using QualityLab.Api.Infrastructure.Persistence;
+using Wonrich.QualityPanel;
 
 namespace QualityLab.Api.Application.Specs;
 
@@ -76,31 +77,29 @@ public sealed class SpecThresholdService : ISpecThresholdService
             .FirstOrDefaultAsync(s => s.ProductLine == panel.ProductLine, ct)
             ?? throw new InvalidOperationException($"No spec threshold configured for product line '{panel.ProductLine}'.");
 
-        var flags = new List<OutOfSpecFlag>();
+        // Use the shared evaluator from Wonrich.QualityPanel
+        var limits = new SpecLimits
+        {
+            MinFatPercent = spec.MinFatPercent,
+            MaxFatPercent = spec.MaxFatPercent,
+            MinPh = spec.MinPh,
+            MaxPh = spec.MaxPh,
+            MinSnf = spec.MinSnf,
+            MinCorrectedClr = spec.MinCorrectedClr
+        };
 
-        // Fat
-        if (spec.MinFatPercent.HasValue && panel.FatPercent < spec.MinFatPercent.Value)
-            flags.Add(new OutOfSpecFlag { Parameter = "FatPercent", ActualValue = panel.FatPercent, Limit = "Min", LimitValue = spec.MinFatPercent.Value });
-        if (spec.MaxFatPercent.HasValue && panel.FatPercent > spec.MaxFatPercent.Value)
-            flags.Add(new OutOfSpecFlag { Parameter = "FatPercent", ActualValue = panel.FatPercent, Limit = "Max", LimitValue = spec.MaxFatPercent.Value });
-
-        // pH
-        if (spec.MinPh.HasValue && panel.Ph < spec.MinPh.Value)
-            flags.Add(new OutOfSpecFlag { Parameter = "Ph", ActualValue = panel.Ph, Limit = "Min", LimitValue = spec.MinPh.Value });
-        if (spec.MaxPh.HasValue && panel.Ph > spec.MaxPh.Value)
-            flags.Add(new OutOfSpecFlag { Parameter = "Ph", ActualValue = panel.Ph, Limit = "Max", LimitValue = spec.MaxPh.Value });
-
-        // SNF (liquid lines only)
-        if (spec.MinSnf.HasValue && panel.Snf.HasValue && panel.Snf.Value < spec.MinSnf.Value)
-            flags.Add(new OutOfSpecFlag { Parameter = "SNF", ActualValue = panel.Snf.Value, Limit = "Min", LimitValue = spec.MinSnf.Value });
-
-        // CLR (liquid lines only)
-        if (spec.MinCorrectedClr.HasValue && panel.CorrectedClr.HasValue && panel.CorrectedClr.Value < spec.MinCorrectedClr.Value)
-            flags.Add(new OutOfSpecFlag { Parameter = "CorrectedCLR", ActualValue = panel.CorrectedClr.Value, Limit = "Min", LimitValue = spec.MinCorrectedClr.Value });
+        var specFlags = SpecEvaluator.Evaluate(panel.FatPercent, panel.Ph, panel.Snf, panel.CorrectedClr, limits);
+        var flags = specFlags.Select(f => new OutOfSpecFlag
+        {
+            Parameter = f.Parameter,
+            ActualValue = f.ActualValue,
+            Limit = f.Limit,
+            LimitValue = f.LimitValue
+        }).ToList();
 
         var hasFlags = flags.Count > 0;
 
-        // Update the panel with out-of-spec info
+        // Update the panel with out-of-spec info (snapshot the limit at evaluation time)
         panel.HasOutOfSpecFlags = hasFlags;
         panel.OutOfSpecFlagsJson = hasFlags ? JsonSerializer.Serialize(flags) : null;
         await _db.SaveChangesAsync(ct);
