@@ -21,6 +21,7 @@
     <!-- Pomelo official 9.0.0 only supports EF Core 9. For .NET 10 / EF Core 10, use the maintained fork -->
     <PackageReference Include="Microting.EntityFrameworkCore.MySql" Version="10.0.10" />
     <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 

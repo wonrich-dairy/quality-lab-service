@@ -31,7 +31,9 @@ public class QualityLabApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
                 // No broker in CI: the Kafka check reports Degraded, which is expected.
                 ["Auth:SigningKey"] = "integration-tests-only-signing-key-0123456789abcdef0123456789",
                 ["Kafka:BootstrapServers"] = "localhost:1",
-                ["Kafka:Topics:BatchDeterminations"] = "wonrich.quality-lab.batch-determinations.v1"
+                ["Kafka:Topics:BatchDeterminations"] = "wonrich.quality-lab.batch-determinations.v1",
+                // The stage event listener would retry the missing broker for the whole test run.
+                ["Kafka:StageEventListener:Enabled"] = "false"
             }));
 
         return base.CreateHost(builder);

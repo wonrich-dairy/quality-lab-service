@@ -96,7 +96,7 @@ Useful commands:
 
 ```bash
 docker compose ps
-docker compose logs quality-lab
+docker compose logs quality-lab-service
 docker compose down
 ```
 

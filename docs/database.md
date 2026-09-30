@@ -166,7 +166,7 @@ Do not commit dump files to the repository.
 | Connection timeout | Your IP is not in the firewall | Add your IP under **Networking** |
 | `Access denied for user 'qls_app'` | Wrong password or user | Check the connection string |
 | `/health` returns `Unhealthy` | Database unreachable | Check firewall, connection string and server status |
-| Service fails at startup | Missing connection string or failed migration | Check logs: `docker compose logs quality-lab` or App Service **Log stream** |
+| Service fails at startup | Missing connection string or failed migration | Check logs: `docker compose logs quality-lab-service` or App Service **Log stream** |
 | Server not responding | Server stopped to save credit | Start it: MySQL server → **Overview** → **Start** |
 
 ---
