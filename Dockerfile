@@ -16,8 +16,9 @@ ARG GIT_SHA=local
 ENV GIT_SHA=$GIT_SHA
 WORKDIR /app
 
-# curl is only used by the container HEALTHCHECK
+# curl is only used by the container HEALTHCHECK; upgrade pulls in security patches (openssl etc.)
 RUN apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
 
