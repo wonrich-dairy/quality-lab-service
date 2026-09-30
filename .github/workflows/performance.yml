@@ -96,13 +96,14 @@ jobs:
         env:
           PERF_USERNAME: ${{ secrets.PERF_USERNAME }}
           PERF_PASSWORD: ${{ secrets.PERF_PASSWORD }}
+          RUN_ID: ${{ github.run_number }}-${{ github.run_attempt }}   # names this run's batches PERF-<run>-<attempt>-T<user>
         run: |
           mkdir -p results
           ~/jmeter/bin/jmeter -n -t "$PLAN" \
             -l results/results.jtl -j results/jmeter.log \
             -e -o results/report \
             -Jhost="$TARGET_HOST" -Jauth_host="$AUTH_HOST" \
-            -Jusername="$PERF_USERNAME" -Jpassword="$PERF_PASSWORD" \
+            -Jusername="$PERF_USERNAME" -Jpassword="$PERF_PASSWORD" -Jrun_id="$RUN_ID" \
             -Jusers="$USERS" -Jramp="$RAMP" -Jduration="$DURATION" -Jthink_ms="$THINK_MS" \
             -Jaggregate_rpt_pct2=95 \
             "-Jjmeter.reportgenerator.sample_filter=^(read|write): .*"

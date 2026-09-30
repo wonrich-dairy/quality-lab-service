@@ -14,14 +14,19 @@ within 2 seconds") is measured on each release rather than asserted (SCRUM-43).
 
 ## What it tests
 
-One simulated quality analyst repeats this loop, with a pause of 1.0–1.5 s before each request:
+Each simulated quality analyst creates its own batch once, then repeats this loop, with a pause of
+1.0–1.5 s before each request:
 
 | Request | Endpoint | Kind |
 |---|---|---|
 | `read: work queue` | `GET /api/panels/work-queue` | read |
-| `read: batch` | `GET /api/panels/batch/PERF-JMETER-01` | read |
-| `read: latest panel` | `GET /api/panels/PERF-JMETER-01` | read |
-| `write: record chemical panel` | `POST /api/panels/PERF-JMETER-01` | write |
+| `read: batch` | `GET /api/panels/batch/{batch}` | read |
+| `write: record chemical panel` | `POST /api/panels/{batch}` | write |
+| `read: latest panel` | `GET /api/panels/{batch}` | read |
+
+`{batch}` is `PERF-<run>-<attempt>-T<user>`, for example `PERF-57-1-T3`: one batch per virtual user
+per run. The write comes before the latest-panel read because a new batch has no panel until the
+first write.
 
 Three reads to one write: analysts look far more than they record.
 
@@ -29,18 +34,26 @@ Every request carries a bearer token from the auth service, obtained once at the
 `X-Correlation-ID` of `jmeter-<uuid>`, so load-test traffic is easy to find, or exclude, in Loki.
 
 **Setup, not measured:** a warm-up request to `/health` (Free-tier App Services cold-start), the
-sign-in, and creating the batch `PERF-JMETER-01` (product line DY). They are labelled `setup:` and
+sign-in, and each user creating its batch (product line DY). They are labelled `setup:` and
 filtered out of the report, so they never count towards the thresholds.
+
+### Why one batch per user
+
+Panel versions are numbered "highest existing version + 1", with a unique index on
+(batch, version) (`ux_chemical_panels_batch_version`). When several users record a panel on the
+**same** batch at the same moment, two requests can read the same highest version and one of them
+fails with a 500. That is a service defect, tracked in **SCRUM-<bug>**, not a latency problem.
+Giving each user its own batch keeps this test measuring response time. Once the defect is fixed,
+a shared-batch scenario can be added to check it under load.
 
 ### Test data it leaves on staging
 
-- A batch **`PERF-JMETER-01`** in the work queue, dispatch number `PERF-JMETER`. It is created on the first
-  run; later runs get `409 Conflict` and reuse it.
-- **One new chemical-panel version** on that batch per write request, so a few hundred per run. They are
-  re-test versions of one test batch and do not touch real batches.
+- **One batch per virtual user per run** (10 with the defaults), codes starting `PERF-`, dispatch
+  number `PERF-JMETER`.
+- **One chemical-panel version per write request**, on those batches only. Real batches are not touched.
 
-Do not submit a determination for `PERF-JMETER-01`: that would lock the batch and every later run's
-writes would fail.
+Do not record determinations against `PERF-` batches. Filter them out of demos with the dispatch
+number `PERF-JMETER`.
 
 ---
 
