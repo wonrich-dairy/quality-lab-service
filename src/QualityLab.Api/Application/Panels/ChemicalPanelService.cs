@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using QualityLab.Api.Domain.Entities;
 using QualityLab.Api.Infrastructure.Persistence;
@@ -132,6 +133,29 @@ public sealed class ChemicalPanelService : IChemicalPanelService
         {
             batch.Status = BatchStatus.PanelRecorded;
             batch.UpdatedAtUtc = now;
+        }
+
+        // G2: Auto-evaluate against spec at save time so the limit is snapshotted immediately
+        var spec = await _db.SpecThresholds
+            .FirstOrDefaultAsync(s => s.ProductLine == batch.ProductLine, ct);
+
+        if (spec != null)
+        {
+            var limits = new SpecLimits
+            {
+                MinFatPercent = spec.MinFatPercent,
+                MaxFatPercent = spec.MaxFatPercent,
+                MinPh = spec.MinPh,
+                MaxPh = spec.MaxPh,
+                MinSnf = spec.MinSnf,
+                MinCorrectedClr = spec.MinCorrectedClr
+            };
+
+            var specFlags = SpecEvaluator.Evaluate(panel.FatPercent, panel.Ph, panel.Snf, panel.CorrectedClr, limits);
+            panel.HasOutOfSpecFlags = specFlags.Count > 0;
+            panel.OutOfSpecFlagsJson = specFlags.Count > 0
+                ? JsonSerializer.Serialize(specFlags.Select(f => new { f.Parameter, f.ActualValue, f.Limit, f.LimitValue }))
+                : null;
         }
 
         await _db.SaveChangesAsync(ct);
