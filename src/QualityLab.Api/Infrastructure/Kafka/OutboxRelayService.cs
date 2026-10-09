@@ -23,6 +23,7 @@ public sealed class OutboxRelayService : BackgroundService
     private readonly ILogger<OutboxRelayService> _logger;
     private readonly int _maxRetries;
     private readonly int _retentionDays;
+    private readonly string _dlqTopic;
     private int _consecutiveFailedBatches;
     private DateTime _lastCleanupUtc = DateTime.MinValue;
 
@@ -32,6 +33,7 @@ public sealed class OutboxRelayService : BackgroundService
         _logger = logger;
         _maxRetries = configuration.GetValue("Outbox:MaxRetries", 20);
         _retentionDays = Math.Max(1, configuration.GetValue("Outbox:ProcessedRetentionDays", 7));
+        _dlqTopic = configuration["Kafka:Topics:DeterminationsDeadLetter"] is { Length: > 0 } d ? d : "wonrich.dlq.quality-lab-determinations.v1";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -144,6 +146,10 @@ FOR UPDATE SKIP LOCKED").ToListAsync(ct);
                 message.ProcessedAtUtc = DateTime.UtcNow;
                 _logger.LogError("Outbox message {Id} key={Key} failed {MaxRetries} times - POISONED, needs human review. Requeue: Status='Pending', RetryCount=0. LastError: {LastError}",
                     message.Id, message.Key, _maxRetries, message.LastError);
+
+                // Retries exhausted: park a copy on the dead-letter topic. Best effort - if the broker is still down
+                // this fails too, which is why the row stays Poisoned in the outbox as the durable failure record.
+                await ParkOnDlqAsync(producer, message, ct);
             }
 
             break; // stop at first failure - preserves per-key ordering
@@ -163,6 +169,28 @@ FOR UPDATE SKIP LOCKED").ToListAsync(ct);
 
         QualityLabMetrics.OutboxBacklog.Set(await CountBacklogAsync(db, ct));
         return pending.Any(m => m.Status == "Processed");
+    }
+
+    private async Task ParkOnDlqAsync(IKafkaProducer producer, OutboxMessage message, CancellationToken ct)
+    {
+        try
+        {
+            var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(message.HeadersJson) ?? new();
+            headers["x-original-topic"] = message.Topic;
+            headers["x-failure-reason"] = message.LastError ?? "retries exhausted";
+            headers["x-failure-timestamp"] = DateTime.UtcNow.ToString("O");
+
+            var parked = await producer.PublishAsync(_dlqTopic, message.Key, message.Payload,
+                System.Text.Json.JsonSerializer.Serialize(headers), message.CorrelationId, ct);
+            if (parked)
+                _logger.LogWarning("Outbox message {Id} key={Key} parked on DLQ {DlqTopic}", message.Id, message.Key, _dlqTopic);
+            else
+                _logger.LogError("Outbox message {Id} key={Key} could not be parked on DLQ {DlqTopic} - remains Poisoned in outbox_messages", message.Id, message.Key, _dlqTopic);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DLQ publish failed for outbox message {Id} - remains Poisoned in outbox_messages", message.Id);
+        }
     }
 
     private static async Task<int> CountBacklogAsync(QualityLabDbContext db, CancellationToken ct) =>
