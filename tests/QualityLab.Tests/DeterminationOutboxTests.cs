@@ -59,7 +59,7 @@ public class DeterminationOutboxTests : IDisposable
         var msg = Assert.Single(await _db.OutboxMessages.ToListAsync());
         Assert.Equal("wonrich.quality-lab.batch-determinations.v1", msg.Topic);
         Assert.Equal("265-FM-A", msg.Key);
-        Assert.Equal("BatchClearedEvent", msg.EventType);
+        Assert.Equal("BatchCleared", msg.EventType);
         Assert.Equal("Pending", msg.Status);
 
         using var payload = JsonDocument.Parse(msg.Payload);
@@ -80,16 +80,44 @@ public class DeterminationOutboxTests : IDisposable
         }, "analyst", CancellationToken.None);
 
         var msg = Assert.Single(await _db.OutboxMessages.ToListAsync());
-        Assert.Equal("BatchFailedEvent", msg.EventType);
+        Assert.Equal("BatchFailed", msg.EventType);
 
         using var payload = JsonDocument.Parse(msg.Payload);
+        Assert.Equal("BatchFailed", payload.RootElement.GetProperty("eventType").GetString());
         var codes = payload.RootElement.GetProperty("reasonCodes").EnumerateArray().Select(e => e.GetString()).ToList();
         Assert.Equal(new[] { "LOW_FAT", "HIGH_PH" }, codes);
 
         var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(msg.HeadersJson)!;
         Assert.Equal(msg.CorrelationId, headers["x-correlation-id"]);
-        Assert.Equal("BatchFailedEvent", headers["eventType"]);
+        Assert.Equal("BatchFailed", headers["eventType"]);
         Assert.True(Guid.TryParse(headers["eventId"], out _));
+    }
+
+    [Fact]
+    public async Task Fail_CarriesOutOfSpecDetails_FromPanelFlags()
+    {
+        await Seed();
+        var panel = await _db.ChemicalPanels.SingleAsync();
+        panel.HasOutOfSpecFlags = true;
+        panel.OutOfSpecFlagsJson = JsonSerializer.Serialize(new[]
+        {
+            new { Parameter = "FatPercent", ActualValue = 3.2m, Limit = "Min", LimitValue = 3.5m }
+        });
+        await _db.SaveChangesAsync();
+
+        await _service.SubmitAsync("265-FM-A", new SubmitDeterminationRequest
+        {
+            Result = DeterminationResult.Fail, ReasonCodes = new List<string> { "LOW_FAT" }
+        }, "analyst", CancellationToken.None);
+
+        var msg = Assert.Single(await _db.OutboxMessages.ToListAsync());
+        using var payload = JsonDocument.Parse(msg.Payload);
+        Assert.True(payload.RootElement.GetProperty("isDeviation").GetBoolean());
+        var d = Assert.Single(payload.RootElement.GetProperty("outOfSpecDetails").EnumerateArray());
+        Assert.Equal("FatPercent", d.GetProperty("parameter").GetString());
+        Assert.Equal(3.2m, d.GetProperty("measuredValue").GetDecimal());
+        Assert.Equal("Min", d.GetProperty("limit").GetString());
+        Assert.Equal(3.5m, d.GetProperty("limitValue").GetDecimal());
     }
 
     [Fact]
@@ -116,7 +144,7 @@ public class DeterminationOutboxTests : IDisposable
 
         var messages = await _db.OutboxMessages.OrderBy(m => m.CreatedAtUtc).ToListAsync();
         Assert.Equal(2, messages.Count);
-        Assert.Equal("BatchFailedEvent", messages[1].EventType);
+        Assert.Equal("BatchFailed", messages[1].EventType);
 
         using var payload = JsonDocument.Parse(messages[1].Payload);
         Assert.Equal(first.Id, payload.RootElement.GetProperty("supersedesDeterminationId").GetGuid());

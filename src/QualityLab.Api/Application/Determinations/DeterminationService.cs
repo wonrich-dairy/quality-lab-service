@@ -70,8 +70,31 @@ public sealed class DeterminationService : IDeterminationService
                 DeterminedAtUtc = det.DeterminedAtUtc,
                 OverrideReason = det.OverrideReason,
                 Notes = det.Notes,
-                ReasonCodes = reasonCodes
+                ReasonCodes = reasonCodes,
+                OutOfSpecDetails = ParseOutOfSpec(panel.OutOfSpecFlagsJson)
             });
+        }
+    }
+
+    /// <summary>Reads the flags SCRUM-22 stored on the panel: [{Parameter, ActualValue, Limit, LimitValue}].</summary>
+    private static IReadOnlyList<OutOfSpecDetail> ParseOutOfSpec(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return Array.Empty<OutOfSpecDetail>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var list = new List<OutOfSpecDetail>();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                string? Str(string n) => el.EnumerateObject().FirstOrDefault(p => p.NameEquals(n) || string.Equals(p.Name, n, StringComparison.OrdinalIgnoreCase)).Value is { ValueKind: JsonValueKind.String } v ? v.GetString() : null;
+                decimal Num(string n) => el.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, n, StringComparison.OrdinalIgnoreCase)).Value is { ValueKind: JsonValueKind.Number } v ? v.GetDecimal() : 0m;
+                list.Add(new OutOfSpecDetail(Str("Parameter") ?? "", Num("ActualValue"), Str("Limit") ?? "", Num("LimitValue")));
+            }
+            return list;
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<OutOfSpecDetail>();
         }
     }
 
