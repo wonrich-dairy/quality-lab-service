@@ -9,6 +9,9 @@ namespace QualityLab.Api.Domain.Events;
 /// </summary>
 public abstract record BatchDeterminationEventBase
 {
+    /// <summary>"BatchCleared" or "BatchFailed" - lets consumers tell the two apart on the shared topic.</summary>
+    public abstract string EventType { get; }
+
     /// <summary>Unique ID for consumer-side deduplication (relay is at-least-once).</summary>
     public Guid EventId { get; init; } = Guid.NewGuid();
 
@@ -43,10 +46,21 @@ public abstract record BatchDeterminationEventBase
 }
 
 /// <summary>Published when a batch passes lab determination (status Cleared).</summary>
-public sealed record BatchClearedEvent : BatchDeterminationEventBase;
+public sealed record BatchClearedEvent : BatchDeterminationEventBase
+{
+    public override string EventType => "BatchCleared";
+}
 
 /// <summary>Published when a batch fails lab determination (status Failed). Carries coded reasons.</summary>
 public sealed record BatchFailedEvent : BatchDeterminationEventBase
 {
+    public override string EventType => "BatchFailed";
+
     public IReadOnlyList<string> ReasonCodes { get; init; } = Array.Empty<string>();
+
+    /// <summary>Parameters outside specification: measured value and the limit that applied. Empty for e.g. sensory-only failures.</summary>
+    public IReadOnlyList<OutOfSpecDetail> OutOfSpecDetails { get; init; } = Array.Empty<OutOfSpecDetail>();
 }
+
+/// <summary>One out-of-spec parameter, e.g. FatPercent measured 3.2 against Min 3.5.</summary>
+public sealed record OutOfSpecDetail(string Parameter, decimal MeasuredValue, string Limit, decimal LimitValue);

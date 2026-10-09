@@ -35,7 +35,7 @@ public sealed class OutboxWriter(QualityLabDbContext db, TimeProvider time, IHtt
         {
             ["x-correlation-id"] = correlationId,
             ["eventId"] = stamped.EventId.ToString(),
-            ["eventType"] = typeof(TEvent).Name,
+            ["eventType"] = stamped.EventType,
             ["schemaVersion"] = stamped.SchemaVersion,
             ["timestamp"] = stamped.TimestampUtc.ToString("o")
         };
@@ -45,7 +45,7 @@ public sealed class OutboxWriter(QualityLabDbContext db, TimeProvider time, IHtt
             Id = Guid.NewGuid(),
             Topic = topic,
             Key = key,
-            EventType = typeof(TEvent).Name,
+            EventType = stamped.EventType,
             Payload = JsonSerializer.Serialize(stamped, stamped.GetType(), Json),
             HeadersJson = JsonSerializer.Serialize(headers),
             CreatedAtUtc = time.GetUtcNow().UtcDateTime,
