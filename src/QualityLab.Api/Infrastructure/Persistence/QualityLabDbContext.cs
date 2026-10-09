@@ -19,6 +19,7 @@ public class QualityLabDbContext : DbContext
     public DbSet<SpecThreshold> SpecThresholds => Set<SpecThreshold>();
     public DbSet<Determination> Determinations => Set<Determination>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -150,6 +151,26 @@ public class QualityLabDbContext : DbContext
             audit.Property(a => a.UserId).HasMaxLength(100).IsRequired();
             audit.Property(a => a.TimestampUtc).HasColumnType("datetime(6)").IsRequired();
             audit.HasIndex(a => new { a.EntityType, a.EntityId }).HasDatabaseName("ix_audit_entity");
+        });
+
+        // OutboxMessage (SCRUM-24) - same schema as Processing Service's outbox_messages
+        modelBuilder.Entity<OutboxMessage>(o =>
+        {
+            o.ToTable("outbox_messages");
+            o.HasKey(m => m.Id);
+            o.Property(m => m.Topic).HasMaxLength(200).IsRequired();
+            o.Property(m => m.Key).HasMaxLength(200).IsRequired();
+            o.Property(m => m.EventType).HasMaxLength(100).IsRequired();
+            o.Property(m => m.Payload).HasColumnType("longtext").IsRequired();
+            o.Property(m => m.HeadersJson).HasColumnType("text").IsRequired();
+            o.Property(m => m.CreatedAtUtc).HasColumnType("datetime(6)").IsRequired();
+            o.Property(m => m.ProcessedAtUtc).HasColumnType("datetime(6)");
+            o.Property(m => m.LastError).HasMaxLength(1000);
+            o.Property(m => m.Status).HasMaxLength(20).IsRequired();
+            o.Property(m => m.CorrelationId).HasMaxLength(100).IsRequired();
+            o.HasIndex(m => m.Status).HasDatabaseName("ix_outbox_status");
+            o.HasIndex(m => m.CreatedAtUtc).HasDatabaseName("ix_outbox_created");
+            o.HasIndex(m => new { m.Status, m.CreatedAtUtc }).HasDatabaseName("ix_outbox_status_created");
         });
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(QualityLabDbContext).Assembly);
