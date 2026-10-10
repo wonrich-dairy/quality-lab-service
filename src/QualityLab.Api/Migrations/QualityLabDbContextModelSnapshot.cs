@@ -207,9 +207,15 @@ namespace QualityLab.Api.Migrations
                     b.HasIndex("BatchCode")
                         .HasDatabaseName("ix_chemical_panels_batch");
 
+                    b.HasIndex("TestedAtUtc")
+                        .HasDatabaseName("ix_chemical_panels_tested_at");
+
                     b.HasIndex("BatchWorkItemId", "Version")
                         .IsUnique()
                         .HasDatabaseName("ux_chemical_panels_batch_version");
+
+                    b.HasIndex("ProductLine", "TestedAtUtc")
+                        .HasDatabaseName("ix_chemical_panels_product_line_tested_at");
 
                     b.ToTable("chemical_panels", (string)null);
                 });
@@ -270,7 +276,39 @@ namespace QualityLab.Api.Migrations
                     b.HasIndex("BatchWorkItemId")
                         .HasDatabaseName("ix_determinations_batch");
 
+                    b.HasIndex("Result")
+                        .HasDatabaseName("ix_determinations_result");
+
+                    b.HasIndex("BatchWorkItemId", "SupersededById", "Result")
+                        .HasDatabaseName("ix_determinations_batch_active_result");
+
                     b.ToTable("determinations", (string)null);
+                });
+
+            modelBuilder.Entity("QualityLab.Api.Domain.Entities.DeterminationReasonCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<Guid>("DeterminationId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .HasDatabaseName("ix_determination_reason_codes_code");
+
+                    b.HasIndex("DeterminationId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_determination_reason_codes_det_code");
+
+                    b.ToTable("determination_reason_codes", (string)null);
                 });
 
             modelBuilder.Entity("QualityLab.Api.Domain.Entities.SensoryEvaluation", b =>
@@ -507,6 +545,17 @@ namespace QualityLab.Api.Migrations
                     b.Navigation("BatchWorkItem");
                 });
 
+            modelBuilder.Entity("QualityLab.Api.Domain.Entities.DeterminationReasonCode", b =>
+                {
+                    b.HasOne("QualityLab.Api.Domain.Entities.Determination", "Determination")
+                        .WithMany("ReasonCodes")
+                        .HasForeignKey("DeterminationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Determination");
+                });
+
             modelBuilder.Entity("QualityLab.Api.Domain.Entities.SensoryEvaluation", b =>
                 {
                     b.HasOne("QualityLab.Api.Domain.Entities.BatchWorkItem", "BatchWorkItem")
@@ -525,6 +574,11 @@ namespace QualityLab.Api.Migrations
                     b.Navigation("Panels");
 
                     b.Navigation("SensoryEvaluation");
+                });
+
+            modelBuilder.Entity("QualityLab.Api.Domain.Entities.Determination", b =>
+                {
+                    b.Navigation("ReasonCodes");
                 });
 #pragma warning restore 612, 618
         }

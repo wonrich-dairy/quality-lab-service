@@ -48,4 +48,7 @@ public class Determination
 
     public DateTime DeterminedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+
+    /// <summary>Indexed copy of the reason codes, one row per code (SCRUM-25).</summary>
+    public ICollection<DeterminationReasonCode> ReasonCodes { get; set; } = new List<DeterminationReasonCode>();
 }

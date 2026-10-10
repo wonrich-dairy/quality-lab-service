@@ -89,6 +89,7 @@ public sealed class DeterminationService : IDeterminationService
             CreatedAtUtc = now
         };
 
+        AttachReasonCodes(determination, request.ReasonCodes);
         _db.Determinations.Add(determination);
 
         // Lock sensory evaluation and chemical panel
@@ -196,6 +197,7 @@ public sealed class DeterminationService : IDeterminationService
             CreatedAtUtc = now
         };
 
+        AttachReasonCodes(newDetermination, request.ReasonCodes);
         _db.Determinations.Add(newDetermination);
 
         // Chain: mark old as superseded
@@ -247,6 +249,26 @@ public sealed class DeterminationService : IDeterminationService
             .Where(d => d.BatchCode == batchCode)
             .OrderByDescending(d => d.DeterminedAtUtc)
             .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// SCRUM-25: one indexed row per distinct code, upper-cased, so the historical view can
+    /// filter and count by reason without parsing <see cref="Determination.ReasonCodesJson"/>.
+    /// </summary>
+    private static void AttachReasonCodes(Determination determination, IEnumerable<string> codes)
+    {
+        foreach (var code in codes
+                     .Where(c => !string.IsNullOrWhiteSpace(c))
+                     .Select(c => c.Trim().ToUpperInvariant())
+                     .Distinct())
+        {
+            determination.ReasonCodes.Add(new DeterminationReasonCode
+            {
+                Id = Guid.NewGuid(),
+                DeterminationId = determination.Id,
+                Code = code
+            });
+        }
     }
 
     private static bool HasSensoryIssues(SensoryEvaluation? sensory)
