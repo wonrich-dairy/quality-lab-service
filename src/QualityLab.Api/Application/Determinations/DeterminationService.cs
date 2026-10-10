@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using QualityLab.Api.Application.Outbox;
 using QualityLab.Api.Domain.Entities;
+using QualityLab.Api.Domain.Events;
 using QualityLab.Api.Infrastructure.Persistence;
+using QualityLab.Api.Observability;
 
 namespace QualityLab.Api.Application.Determinations;
 
@@ -11,16 +14,88 @@ namespace QualityLab.Api.Application.Determinations;
 /// - Pass with out-of-spec flags or failed sensory requires an override reason
 /// - Lock: sets sensory.Locked and panel.Locked and prevents further edits
 /// - Supersede: never edit in place; create a new determination and chain
+/// - Publish (SCRUM-24): BatchCleared / BatchFailed staged in the outbox in the same transaction as the result
 /// </summary>
 public sealed class DeterminationService : IDeterminationService
 {
+    public const string DefaultTopic = "wonrich.quality-lab.batch-determinations.v1";
+
     private readonly QualityLabDbContext _db;
     private readonly TimeProvider _time;
+    private readonly IOutboxWriter _outbox;
+    private readonly string _topic;
 
-    public DeterminationService(QualityLabDbContext db, TimeProvider time)
+    public DeterminationService(QualityLabDbContext db, TimeProvider time, IOutboxWriter outbox, IConfiguration? configuration = null)
     {
         _db = db;
         _time = time;
+        _outbox = outbox;
+        _topic = configuration?["Kafka:Topics:BatchDeterminations"] is { Length: > 0 } t ? t : DefaultTopic;
+    }
+
+    private void StageEvent(Determination det, BatchWorkItem batch, ChemicalPanel panel, SensoryEvaluation? sensory,
+        IReadOnlyList<string> reasonCodes, Guid? supersedes, DateTime now)
+    {
+        var isDeviation = panel.HasOutOfSpecFlags || HasSensoryIssues(sensory);
+
+        if (det.Result == DeterminationResult.Pass)
+        {
+            _outbox.Write(_topic, batch.BatchCode, new BatchClearedEvent
+            {
+                BatchId = batch.BatchCode,
+                DispatchNumber = batch.DispatchNumber,
+                ProductLine = batch.ProductLine.ToString(),
+                TimestampUtc = now,
+                IsDeviation = isDeviation,
+                DeterminationId = det.Id,
+                SupersedesDeterminationId = supersedes,
+                DeterminedBy = det.DeterminedBy,
+                DeterminedAtUtc = det.DeterminedAtUtc,
+                OverrideReason = det.OverrideReason,
+                Notes = det.Notes
+            });
+        }
+        else
+        {
+            _outbox.Write(_topic, batch.BatchCode, new BatchFailedEvent
+            {
+                BatchId = batch.BatchCode,
+                DispatchNumber = batch.DispatchNumber,
+                ProductLine = batch.ProductLine.ToString(),
+                TimestampUtc = now,
+                IsDeviation = isDeviation,
+                DeterminationId = det.Id,
+                SupersedesDeterminationId = supersedes,
+                DeterminedBy = det.DeterminedBy,
+                DeterminedAtUtc = det.DeterminedAtUtc,
+                OverrideReason = det.OverrideReason,
+                Notes = det.Notes,
+                ReasonCodes = reasonCodes,
+                OutOfSpecDetails = ParseOutOfSpec(panel.OutOfSpecFlagsJson)
+            });
+        }
+    }
+
+    /// <summary>Reads the flags SCRUM-22 stored on the panel: [{Parameter, ActualValue, Limit, LimitValue}].</summary>
+    private static IReadOnlyList<OutOfSpecDetail> ParseOutOfSpec(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return Array.Empty<OutOfSpecDetail>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var list = new List<OutOfSpecDetail>();
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                string? Str(string n) => el.EnumerateObject().FirstOrDefault(p => p.NameEquals(n) || string.Equals(p.Name, n, StringComparison.OrdinalIgnoreCase)).Value is { ValueKind: JsonValueKind.String } v ? v.GetString() : null;
+                decimal Num(string n) => el.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, n, StringComparison.OrdinalIgnoreCase)).Value is { ValueKind: JsonValueKind.Number } v ? v.GetDecimal() : 0m;
+                list.Add(new OutOfSpecDetail(Str("Parameter") ?? "", Num("ActualValue"), Str("Limit") ?? "", Num("LimitValue")));
+            }
+            return list;
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<OutOfSpecDetail>();
+        }
     }
 
     // Standard reason codes used when failing a batch
@@ -146,7 +221,11 @@ public sealed class DeterminationService : IDeterminationService
             });
         }
 
+        // SCRUM-24: staged in the same SaveChanges - rollback publishes nothing, broker outage cannot fail the save
+        StageEvent(determination, batch, panel, sensory, request.ReasonCodes, null, now);
+
         await _db.SaveChangesAsync(ct);
+        QualityLabMetrics.RecordDetermination(request.Result == DeterminationResult.Pass);
         return determination;
     }
 
@@ -237,7 +316,10 @@ public sealed class DeterminationService : IDeterminationService
             });
         }
 
+        StageEvent(newDetermination, batch, panel, sensory, request.ReasonCodes, existing.Id, now);
+
         await _db.SaveChangesAsync(ct);
+        QualityLabMetrics.RecordDetermination(request.Result == DeterminationResult.Pass);
         return newDetermination;
     }
 
