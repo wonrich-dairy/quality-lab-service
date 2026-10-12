@@ -1,0 +1,72 @@
+name: Publish contracts package
+
+# Publishes Wonrich.QualityLab.Contracts to the org's GitHub Packages NuGet feed.
+# Trigger: push a tag contracts-v<version>, e.g. contracts-v1.0.0. The tag must equal <Version>
+# in the .csproj, so every published version maps to exactly one commit. GitHub Packages refuses
+# to overwrite an existing version, so a released version can never change underneath consumers.
+#
+#   git tag contracts-v1.0.0 <commit on develop/main>
+#   git push origin contracts-v1.0.0
+
+on:
+  push:
+    tags: ["contracts-v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  PROJECT: src/Wonrich.QualityLab.Contracts/Wonrich.QualityLab.Contracts.csproj
+  FEED: https://nuget.pkg.github.com/wonrich-dairy/index.json
+
+jobs:
+  publish:
+    name: Pack and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Only tags on reviewed code: the tagged commit must already be on develop or main.
+      - name: Check the tag is on develop or main
+        run: |
+          git fetch origin develop main
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/develop || git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Tagged commit is on develop/main"
+          else
+            echo "::error::Tag ${GITHUB_REF_NAME} points at a commit that is not on develop or main"; exit 1
+          fi
+
+      - name: Check the tag matches the project version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#contracts-v}"
+          PROJECT_VERSION=$(dotnet msbuild "$PROJECT" -getProperty:Version)
+          echo "tag=$TAG_VERSION project=$PROJECT_VERSION"
+          [ "$TAG_VERSION" = "$PROJECT_VERSION" ] || { echo "::error::Tag $GITHUB_REF_NAME does not match <Version>$PROJECT_VERSION</Version>"; exit 1; }
+
+      # The API and its tests compile against these exact types, so a contract that breaks them never ships.
+      - name: Build and test against the contracts
+        run: |
+          dotnet build "$PROJECT" -c Release
+          dotnet test tests/QualityLab.Tests/QualityLab.Tests.csproj -c Release --filter "FullyQualifiedName~BatchDeterminationContractsTests|FullyQualifiedName~DeterminationOutboxTests"
+
+      - name: Pack
+        run: dotnet pack "$PROJECT" -c Release --no-build -o out -p:RepositoryCommit=${{ github.sha }}
+
+      - name: Push to GitHub Packages
+        run: dotnet nuget push "out/*.nupkg" --source "$FEED" --api-key "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published Wonrich.QualityLab.Contracts ${GITHUB_REF_NAME#contracts-v}"
+            echo "- Feed: \`$FEED\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"

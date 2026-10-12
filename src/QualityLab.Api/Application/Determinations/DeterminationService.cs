@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using QualityLab.Api.Application.Outbox;
 using QualityLab.Api.Domain.Entities;
-using QualityLab.Api.Domain.Events;
+using Wonrich.QualityLab.Contracts.Events;
 using QualityLab.Api.Infrastructure.Persistence;
 using QualityLab.Api.Observability;
 

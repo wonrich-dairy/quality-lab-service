@@ -1,4 +1,4 @@
-namespace QualityLab.Api.Domain.Events;
+namespace Wonrich.QualityLab.Contracts.Events;
 
 /// <summary>
 /// Versioned event contracts published by Quality Lab on
