@@ -41,6 +41,11 @@ public static class QualityLabMetrics
         "Final lab determinations, by result (pass = batch cleared, fail = batch failed).",
         new CounterConfiguration { LabelNames = new[] { "result" } });
 
+    /// <summary>Outbox rows not yet published (Pending) or failed for good (Poisoned). Sustained growth = broker outage.</summary>
+    public static readonly Gauge OutboxBacklog = Metrics.CreateGauge(
+        "quality_lab_outbox_backlog",
+        "Outbox messages Pending or Poisoned (SCRUM-24).");
+
     public static readonly Counter StageEventsReceived = Metrics.CreateCounter(
         "quality_lab_stage_events_received_total",
         "Processing stage events received from Kafka, by event type.",

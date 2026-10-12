@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wonrich.QualityPanel\Wonrich.QualityPanel.csproj" />
+    <ProjectReference Include="..\Wonrich.QualityLab.Contracts\Wonrich.QualityLab.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="QualityLab.Tests" />

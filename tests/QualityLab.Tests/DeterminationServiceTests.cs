@@ -16,7 +16,7 @@ public class DeterminationServiceTests : IDisposable
             .UseInMemoryDatabase($"DetTest_{Guid.NewGuid()}")
             .Options;
         _db = new QualityLabDbContext(options);
-        _service = new DeterminationService(_db, TimeProvider.System);
+        _service = new DeterminationService(_db, TimeProvider.System, new QualityLab.Api.Application.Outbox.OutboxWriter(_db, TimeProvider.System));
     }
 
     public void Dispose() => _db.Dispose();

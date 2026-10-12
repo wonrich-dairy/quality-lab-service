@@ -9,6 +9,7 @@ using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Application.Specs;
 using QualityLab.Api.Application.Determinations;
 using QualityLab.Api.Application.LabResults;
+using QualityLab.Api.Application.Outbox;
 using QualityLab.Api.Health;
 using QualityLab.Api.Infrastructure.Auth;
 using QualityLab.Api.Infrastructure.Kafka;
@@ -51,6 +52,15 @@ builder.Services.AddScoped<ISensoryEvaluationService, SensoryEvaluationService>(
 builder.Services.AddScoped<ISpecThresholdService, SpecThresholdService>();
 builder.Services.AddScoped<IDeterminationService, DeterminationService>();
 builder.Services.AddScoped<ILabResultsService, LabResultsService>();
+
+// ── Kafka producer (SCRUM-24): BatchCleared / BatchFailed via transactional outbox ──
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IOutboxWriter, OutboxWriter>();
+if (string.IsNullOrWhiteSpace(builder.Configuration["Kafka:BootstrapServers"]))
+    builder.Services.AddSingleton<IKafkaProducer, NoOpKafkaProducer>();
+else
+    builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
+builder.Services.AddHostedService<OutboxRelayService>();
 
 // ── Kafka consumer (ProcessingCompleted → work queue) ──────────────────────
 builder.Services.AddHostedService<ProcessingCompletedConsumer>();
