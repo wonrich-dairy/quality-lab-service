@@ -416,7 +416,7 @@ public class LabResultsServiceTests : IDisposable
     {
         Add(_db, "B-DET", ProductLine.FM, Sep1);
         await _db.SaveChangesAsync();
-        var determinations = new DeterminationService(_db, TimeProvider.System);
+        var determinations = new DeterminationService(_db, TimeProvider.System, new QualityLab.Api.Application.Outbox.OutboxWriter(_db, TimeProvider.System));
 
         var det = await determinations.SubmitAsync("B-DET", new SubmitDeterminationRequest
         {
@@ -436,7 +436,7 @@ public class LabResultsServiceTests : IDisposable
     {
         Add(_db, "B-SUP", ProductLine.FM, Sep1);
         await _db.SaveChangesAsync();
-        var determinations = new DeterminationService(_db, TimeProvider.System);
+        var determinations = new DeterminationService(_db, TimeProvider.System, new QualityLab.Api.Application.Outbox.OutboxWriter(_db, TimeProvider.System));
 
         await determinations.SubmitAsync("B-SUP", new SubmitDeterminationRequest
         {
