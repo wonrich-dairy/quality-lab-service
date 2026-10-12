@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Event contracts Quality Lab publishes on wonrich.quality-lab.batch-determinations.v1 (SCRUM-24).
+    Consumers (Processing, Traceability) reference this package instead of copying the classes.
+
+    Versioning: the major version follows the topic's schemaVersion, so 1.x.y is "v1".
+    - Added optional field            -> minor bump (1.1.0), same topic.
+    - Breaking change (rename/remove) -> 2.0.0 together with a new .v2 topic.
+    Published from CI on a tag contracts-v<Version> (see .github/workflows/publish-contracts.yml);
+    the tag must match <Version> below, so every published version maps to one commit.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wonrich.QualityLab.Contracts</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Wonrich.QualityLab.Contracts</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Wonrich Dairy</Authors>
+    <Company>Wonrich Dairy</Company>
+    <Description>Kafka event contracts published by the Wonrich Quality Lab service on wonrich.quality-lab.batch-determinations.v1: BatchClearedEvent, BatchFailedEvent and OutOfSpecDetail (schemaVersion v1).</Description>
+    <PackageTags>wonrich;quality-lab;kafka;contracts;events</PackageTags>
+    <RepositoryUrl>https://github.com/wonrich-dairy/quality-lab-service</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

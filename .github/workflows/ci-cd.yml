@@ -77,6 +77,10 @@ jobs:
       - name: Build
         run: dotnet build ${{ env.API_PROJECT }} --no-restore -c Release
 
+      # Wonrich.QualityLab.Contracts must stay packable. Publishing is tag-only (publish-contracts.yml).
+      - name: Pack contracts (validation)
+        run: dotnet pack src/Wonrich.QualityLab.Contracts/Wonrich.QualityLab.Contracts.csproj -c Release -o artifacts/packages
+
       # ── Stage: unit tests ───────────────────────────────────────────────────
       - name: Unit tests
         run: >

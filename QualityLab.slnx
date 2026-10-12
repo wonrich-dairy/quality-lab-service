@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/QualityLab.Api/QualityLab.Api.csproj" />
     <Project Path="src/Wonrich.QualityPanel/Wonrich.QualityPanel.csproj" />
+    <Project Path="src/Wonrich.QualityLab.Contracts/Wonrich.QualityLab.Contracts.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/QualityLab.IntegrationTests/QualityLab.IntegrationTests.csproj" />
