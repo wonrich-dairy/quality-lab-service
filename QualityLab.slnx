@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/QualityLab.IntegrationTests/QualityLab.IntegrationTests.csproj" />
+    <Project Path="tests/QualityLab.Tests/QualityLab.Tests.csproj" />
     <Project Path="tests/QualityLab.UnitTests/QualityLab.UnitTests.csproj" />
   </Folder>
 </Solution>
