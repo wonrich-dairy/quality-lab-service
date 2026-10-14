@@ -76,7 +76,9 @@ public static class QualityLabAuthExtensions
                 policy.WithOrigins(origins)
                       .AllowAnyHeader()
                       .AllowAnyMethod()
-                      .AllowCredentials();
+                      .AllowCredentials()
+                      // SCRUM-25: the CSV export's file name (filters + date) lives in this header
+                      .WithExposedHeaders("Content-Disposition");
             });
         });
 

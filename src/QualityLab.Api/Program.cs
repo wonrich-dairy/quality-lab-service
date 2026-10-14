@@ -8,6 +8,7 @@ using QualityLab.Api.Application.Panels;
 using QualityLab.Api.Application.Sensory;
 using QualityLab.Api.Application.Specs;
 using QualityLab.Api.Application.Determinations;
+using QualityLab.Api.Application.LabResults;
 using QualityLab.Api.Application.Outbox;
 using QualityLab.Api.Health;
 using QualityLab.Api.Infrastructure.Auth;
@@ -50,6 +51,7 @@ builder.Services.AddScoped<IChemicalPanelService, ChemicalPanelService>();
 builder.Services.AddScoped<ISensoryEvaluationService, SensoryEvaluationService>();
 builder.Services.AddScoped<ISpecThresholdService, SpecThresholdService>();
 builder.Services.AddScoped<IDeterminationService, DeterminationService>();
+builder.Services.AddScoped<ILabResultsService, LabResultsService>();
 
 // ── Kafka producer (SCRUM-24): BatchCleared / BatchFailed via transactional outbox ──
 builder.Services.AddHttpContextAccessor();

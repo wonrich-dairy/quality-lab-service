@@ -19,6 +19,7 @@ public class QualityLabDbContext : DbContext
     public DbSet<SpecThreshold> SpecThresholds => Set<SpecThreshold>();
     public DbSet<Determination> Determinations => Set<Determination>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<DeterminationReasonCode> DeterminationReasonCodes => Set<DeterminationReasonCode>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -66,6 +67,10 @@ public class QualityLabDbContext : DbContext
             panel.Property(p => p.CreatedAtUtc).HasColumnType("datetime(6)").IsRequired();
             panel.HasOne(p => p.BatchWorkItem).WithMany(b => b.Panels).HasForeignKey(p => p.BatchWorkItemId).OnDelete(DeleteBehavior.Cascade);
             panel.HasIndex(p => new { p.BatchWorkItemId, p.Version }).IsUnique().HasDatabaseName("ux_chemical_panels_batch_version");
+
+            // SCRUM-25 history view: filter by product line, filter/sort by tested-at
+            panel.HasIndex(p => new { p.ProductLine, p.TestedAtUtc }).HasDatabaseName("ix_chemical_panels_product_line_tested_at");
+            panel.HasIndex(p => p.TestedAtUtc).HasDatabaseName("ix_chemical_panels_tested_at");
         });
 
         // SensoryEvaluation — one per batch
@@ -136,6 +141,21 @@ public class QualityLabDbContext : DbContext
             det.HasOne(d => d.BatchWorkItem).WithMany(b => b.Determinations).HasForeignKey(d => d.BatchWorkItemId).OnDelete(DeleteBehavior.Cascade);
             det.HasIndex(d => d.BatchWorkItemId).HasDatabaseName("ix_determinations_batch");
             det.HasIndex(d => d.BatchCode).HasDatabaseName("ix_determinations_batchcode");
+
+            // SCRUM-25 history view: "active determination for this batch, with this result"
+            det.HasIndex(d => new { d.BatchWorkItemId, d.SupersededById, d.Result }).HasDatabaseName("ix_determinations_batch_active_result");
+            det.HasIndex(d => d.Result).HasDatabaseName("ix_determinations_result");
+        });
+
+        // DeterminationReasonCode — one row per coded reason (SCRUM-25)
+        modelBuilder.Entity<DeterminationReasonCode>(reason =>
+        {
+            reason.ToTable("determination_reason_codes");
+            reason.HasKey(r => r.Id);
+            reason.Property(r => r.Code).HasMaxLength(50).IsRequired();
+            reason.HasOne(r => r.Determination).WithMany(d => d.ReasonCodes).HasForeignKey(r => r.DeterminationId).OnDelete(DeleteBehavior.Cascade);
+            reason.HasIndex(r => new { r.DeterminationId, r.Code }).IsUnique().HasDatabaseName("ux_determination_reason_codes_det_code");
+            reason.HasIndex(r => r.Code).HasDatabaseName("ix_determination_reason_codes_code");
         });
 
         // AuditEntry
