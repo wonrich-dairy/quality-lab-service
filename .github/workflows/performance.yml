@@ -13,6 +13,14 @@ name: Performance test (JMeter)
 on:
   workflow_dispatch:
     inputs:
+      profile:
+        description: "Load profile: load (steady), stress (10 -> 25 -> 50 users) or spike (5 -> 50 -> 5)"
+        type: choice
+        options: [load, stress, spike]
+        default: load
+      step_seconds:
+        description: Seconds per step for stress and spike (ignored by load)
+        default: "60"
       users:
         description: Concurrent virtual users
         default: "10"
@@ -33,6 +41,8 @@ on:
         default: "1"
   workflow_call:
     inputs:
+      profile:          { type: string, default: "load" }
+      step_seconds:     { type: string, default: "60" }
       users:            { type: string, default: "10" }
       ramp_seconds:     { type: string, default: "30" }
       duration_seconds: { type: string, default: "120" }
@@ -54,6 +64,8 @@ jobs:
     environment: staging          # PERF_USERNAME / PERF_PASSWORD secrets, APP_HOST / AUTH_HOST variables
     timeout-minutes: 30
     env:
+      PROFILE: ${{ inputs.profile }}
+      STEP_SECONDS: ${{ inputs.step_seconds }}
       USERS: ${{ inputs.users }}
       RAMP: ${{ inputs.ramp_seconds }}
       DURATION: ${{ inputs.duration_seconds }}
@@ -85,28 +97,28 @@ jobs:
 
       - name: Check inputs
         run: |
-          for v in USERS RAMP DURATION THINK_MS P95_MS MAX_ERROR_PCT; do
+          [[ "$PROFILE" =~ ^(load|stress|spike)$ ]] || { echo "::error::profile must be load, stress or spike, got '$PROFILE'"; exit 1; }
+          for v in USERS RAMP DURATION STEP_SECONDS THINK_MS P95_MS MAX_ERROR_PCT; do
             [[ "${!v}" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "::error::$v must be a number, got '${!v}'"; exit 1; }
           done
           [ -n "$TARGET_HOST" ] || { echo "::error::Set the APP_HOST (or PERF_TARGET_HOST) variable on the staging environment"; exit 1; }
           [ -n "$AUTH_HOST" ]   || { echo "::error::Set the AUTH_HOST variable on the staging environment"; exit 1; }
-          echo "Target https://$TARGET_HOST - $USERS users, ${RAMP}s ramp-up, ${DURATION}s, think ${THINK_MS}ms+; thresholds p95 ${P95_MS}ms, errors ${MAX_ERROR_PCT}%"
+          for h in TARGET_HOST AUTH_HOST; do
+            [[ "${!h}" != *"://"* && "${!h}" != */ ]] || { echo "::error::$h must be a bare host name (no https:// and no trailing slash), got '${!h}'"; exit 1; }
+          done
+          echo "Target https://$TARGET_HOST - profile $PROFILE (users/ramp/duration apply to load, step_seconds to stress and spike); think ${THINK_MS}ms+; thresholds p95 ${P95_MS}ms, errors ${MAX_ERROR_PCT}%"
 
-      - name: Run load test
+      - name: Run load test (${{ inputs.profile }})
         env:
           PERF_USERNAME: ${{ secrets.PERF_USERNAME }}
           PERF_PASSWORD: ${{ secrets.PERF_PASSWORD }}
-          RUN_ID: ${{ github.run_number }}-${{ github.run_attempt }}   # names this run's batches PERF-<run>-<attempt>-T<user>
-        run: |
-          mkdir -p results
-          ~/jmeter/bin/jmeter -n -t "$PLAN" \
-            -l results/results.jtl -j results/jmeter.log \
-            -e -o results/report \
-            -Jhost="$TARGET_HOST" -Jauth_host="$AUTH_HOST" \
-            -Jusername="$PERF_USERNAME" -Jpassword="$PERF_PASSWORD" -Jrun_id="$RUN_ID" \
-            -Jusers="$USERS" -Jramp="$RAMP" -Jduration="$DURATION" -Jthink_ms="$THINK_MS" \
-            -Jaggregate_rpt_pct2=95 \
-            "-Jjmeter.reportgenerator.sample_filter=^(read|write): .*"
+          RUN_ID: ${{ github.run_number }}-${{ github.run_attempt }}   # names this run's batches PERF-<run>-<attempt>-P<phase>-T<user>
+          HOST: ${{ env.TARGET_HOST }}
+          OUT: results
+          P95_MS: ""          # thresholds are checked in their own step, after the report is uploaded
+          MAX_ERROR_PCT: ""
+        # perf/run.sh maps the profile to users per phase; the same script runs locally.
+        run: JMETER="$HOME/jmeter/bin/jmeter" bash perf/run.sh "$PROFILE"
 
       - name: Upload report
         if: always()
