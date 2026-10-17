@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Quality Lab Service - performance" enabled="true">
-      <stringProp name="TestPlan.comments">SCRUM-43. Load profile and target are JMeter properties (-J): host, auth_host, username, password, users, ramp, duration, think_ms, run_id. Only samplers labelled 'read:' or 'write:' are measured; 'setup:' samplers (sign-in, warm-up) are excluded from the report. See docs/performance-testing.md.</stringProp>
+      <stringProp name="TestPlan.comments">SCRUM-43. Target and load are JMeter properties (-J): host, auth_host, username, password, think_ms, run_id, and p1/p2/p3 _users, _ramp, _duration for the three phases. Thread groups run one after another (serialized), so a profile is a sequence of phases: load uses phase 1 only; stress steps 10, 25, 50 users; spike goes 5, 50, 5. Run it through perf/run.sh &lt;load|stress|spike&gt;. Only samplers labelled 'read:' or 'write:' are measured; 'setup:' samplers (sign-in, warm-up) are excluded from the report. See docs/performance-testing.md.</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
@@ -98,22 +98,23 @@
             <stringProp name="filename" />
             <stringProp name="cacheKey">true</stringProp>
             <stringProp name="script">props.put("token", vars.get("token"))
-// One batch per load thread per run: PERF-&lt;run_id&gt;-T&lt;thread&gt;. CI passes -Jrun_id (run number and attempt); local runs get a timestamp.
+// One batch per load thread per run: PERF-&lt;run_id&gt;-P&lt;phase&gt;-T&lt;thread&gt;. CI passes -Jrun_id (run number and attempt); local runs get a timestamp.
 if (!props.getProperty("run_id")) { props.put("run_id", new Date().format("yyMMddHHmmss")) }</stringProp>
           </JSR223PostProcessor>
           <hashTree />
         </hashTree>
       </hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="load: quality analysts" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="phase 1: quality analysts" enabled="true">
+        <stringProp name="TestPlan.comments">Load: the whole test. Stress: step 1. Spike: baseline before the spike. Users, ramp-up and duration come from -Jp1_users, -Jp1_ramp, -Jp1_duration (set by perf/run.sh from the profile).</stringProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <stringProp name="LoopController.loops">-1</stringProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">${__P(users,10)}</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">${__P(ramp,30)}</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(p1_users,10)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(p1_ramp,30)}</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">${__P(duration,120)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(p1_duration,120)}</stringProp>
         <stringProp name="ThreadGroup.delay" />
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
@@ -159,7 +160,7 @@ if (!props.getProperty("run_id")) { props.put("run_id", new Date().format("yyMMd
               <collectionProp name="Arguments.arguments">
                 <elementProp name="" elementType="HTTPArgument">
                   <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                  <stringProp name="Argument.value">{"batchCode":"PERF-${__P(run_id)}-T${__threadNum}","dispatchNumber":"PERF-JMETER","productLine":"DY"}</stringProp>
+                  <stringProp name="Argument.value">{"batchCode":"PERF-${__P(run_id)}-P1-T${__threadNum}","dispatchNumber":"PERF-JMETER","productLine":"DY"}</stringProp>
                   <stringProp name="Argument.metadata">=</stringProp>
                 </elementProp>
               </collectionProp>
@@ -185,7 +186,7 @@ if (!props.getProperty("run_id")) { props.put("run_id", new Date().format("yyMMd
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments" />
           </elementProp>
-          <stringProp name="HTTPSampler.path">/api/panels/batch/PERF-${__P(run_id)}-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.path">/api/panels/batch/PERF-${__P(run_id)}-P1-T${__threadNum}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
@@ -202,7 +203,7 @@ if (!props.getProperty("run_id")) { props.put("run_id", new Date().format("yyMMd
               </elementProp>
             </collectionProp>
           </elementProp>
-          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-P1-T${__threadNum}</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
@@ -212,37 +213,239 @@ if (!props.getProperty("run_id")) { props.put("run_id", new Date().format("yyMMd
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments" />
           </elementProp>
-          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-P1-T${__threadNum}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
         </HTTPSamplerProxy>
         <hashTree />
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: lab history" enabled="true">
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="phase 2: quality analysts" enabled="true">
+        <stringProp name="TestPlan.comments">Load: off (0 users). Stress: step 2. Spike: the spike. Users, ramp-up and duration come from -Jp2_users, -Jp2_ramp, -Jp2_duration (set by perf/run.sh from the profile).</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">-1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(p2_users,0)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(p2_ramp,1)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(p2_duration,1)}</stringProp>
+        <stringProp name="ThreadGroup.delay" />
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="bearer token and correlation ID" enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Authorization</stringProp>
+              <stringProp name="Header.value">Bearer ${__P(token)}</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Content-Type</stringProp>
+              <stringProp name="Header.value">application/json</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">X-Correlation-ID</stringProp>
+              <stringProp name="Header.value">jmeter-${__UUID()}</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree />
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="think time" enabled="true">
+          <stringProp name="ConstantTimer.delay">${__P(think_ms,1000)}</stringProp>
+          <stringProp name="RandomTimer.range">500</stringProp>
+        </UniformRandomTimer>
+        <hashTree />
+        <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="2xx" enabled="true">
+          <collectionProp name="Asserion.test_strings">
+            <stringProp name="0">2\d\d</stringProp>
+          </collectionProp>
+          <stringProp name="Assertion.custom_message">Expected a 2xx response</stringProp>
+          <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+          <boolProp name="Assertion.assume_success">false</boolProp>
+          <intProp name="Assertion.test_type">1</intProp>
+        </ResponseAssertion>
+        <hashTree />
+        <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="once per user" enabled="true" />
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="setup: create my batch" enabled="true">
+            <stringProp name="TestPlan.comments">Each user records panels on its own batch. Panel versions are numbered max+1, so concurrent writes to one shared batch collide on ux_chemical_panels_batch_version (see the known issue in docs/performance-testing.md).</stringProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"batchCode":"PERF-${__P(run_id)}-P2-T${__threadNum}","dispatchNumber":"PERF-JMETER","productLine":"DY"}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+            <stringProp name="HTTPSampler.path">/api/panels/batch</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          </HTTPSamplerProxy>
+          <hashTree />
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: work queue" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments" />
           </elementProp>
-          <stringProp name="HTTPSampler.path">/api/lab-results?page=1</stringProp>
+          <stringProp name="HTTPSampler.path">/api/panels/work-queue</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
         </HTTPSamplerProxy>
         <hashTree />
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: lab history filtered" enabled="true">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: batch" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments" />
           </elementProp>
-          <stringProp name="HTTPSampler.path">/api/lab-results?productLine=SY&amp;from=2026-01-01&amp;to=2026-12-31&amp;result=Fail&amp;reasonCode=LOW_FAT</stringProp>
+          <stringProp name="HTTPSampler.path">/api/panels/batch/PERF-${__P(run_id)}-P2-T${__threadNum}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
         </HTTPSamplerProxy>
         <hashTree />
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: lab history summary" enabled="true">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="write: record chemical panel" enabled="true">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{"fatPercent":3.5,"ph":4.4}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-P2-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree />
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: latest panel" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments" />
           </elementProp>
-          <stringProp name="HTTPSampler.path">/api/lab-results/summary?result=Fail</stringProp>
+          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-P2-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree />
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="phase 3: quality analysts" enabled="true">
+        <stringProp name="TestPlan.comments">Load: off (0 users). Stress: step 3. Spike: recovery after the spike. Users, ramp-up and duration come from -Jp3_users, -Jp3_ramp, -Jp3_duration (set by perf/run.sh from the profile).</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">-1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(p3_users,0)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(p3_ramp,1)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${__P(p3_duration,1)}</stringProp>
+        <stringProp name="ThreadGroup.delay" />
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="bearer token and correlation ID" enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Authorization</stringProp>
+              <stringProp name="Header.value">Bearer ${__P(token)}</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Content-Type</stringProp>
+              <stringProp name="Header.value">application/json</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">X-Correlation-ID</stringProp>
+              <stringProp name="Header.value">jmeter-${__UUID()}</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree />
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="think time" enabled="true">
+          <stringProp name="ConstantTimer.delay">${__P(think_ms,1000)}</stringProp>
+          <stringProp name="RandomTimer.range">500</stringProp>
+        </UniformRandomTimer>
+        <hashTree />
+        <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="2xx" enabled="true">
+          <collectionProp name="Asserion.test_strings">
+            <stringProp name="0">2\d\d</stringProp>
+          </collectionProp>
+          <stringProp name="Assertion.custom_message">Expected a 2xx response</stringProp>
+          <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+          <boolProp name="Assertion.assume_success">false</boolProp>
+          <intProp name="Assertion.test_type">1</intProp>
+        </ResponseAssertion>
+        <hashTree />
+        <OnceOnlyController guiclass="OnceOnlyControllerGui" testclass="OnceOnlyController" testname="once per user" enabled="true" />
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="setup: create my batch" enabled="true">
+            <stringProp name="TestPlan.comments">Each user records panels on its own batch. Panel versions are numbered max+1, so concurrent writes to one shared batch collide on ux_chemical_panels_batch_version (see the known issue in docs/performance-testing.md).</stringProp>
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">{"batchCode":"PERF-${__P(run_id)}-P3-T${__threadNum}","dispatchNumber":"PERF-JMETER","productLine":"DY"}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+            <stringProp name="HTTPSampler.path">/api/panels/batch</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          </HTTPSamplerProxy>
+          <hashTree />
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: work queue" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments" />
+          </elementProp>
+          <stringProp name="HTTPSampler.path">/api/panels/work-queue</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree />
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: batch" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments" />
+          </elementProp>
+          <stringProp name="HTTPSampler.path">/api/panels/batch/PERF-${__P(run_id)}-P3-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree />
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="write: record chemical panel" enabled="true">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{"fatPercent":3.5,"ph":4.4}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-P3-T${__threadNum}</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree />
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="read: latest panel" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments" />
+          </elementProp>
+          <stringProp name="HTTPSampler.path">/api/panels/PERF-${__P(run_id)}-P3-T${__threadNum}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>

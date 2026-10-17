@@ -24,8 +24,8 @@ Each simulated quality analyst creates its own batch once, then repeats this loo
 | `write: record chemical panel` | `POST /api/panels/{batch}` | write |
 | `read: latest panel` | `GET /api/panels/{batch}` | read |
 
-`{batch}` is `PERF-<run>-<attempt>-T<user>`, for example `PERF-57-1-T3`: one batch per virtual user
-per run. The write comes before the latest-panel read because a new batch has no panel until the
+`{batch}` is `PERF-<run>-<attempt>-P<phase>-T<user>`, for example `PERF-57-1-P2-T3`: one batch per
+virtual user per phase. The write comes before the latest-panel read because a new batch has no panel until the
 first write.
 
 Three reads to one write: analysts look far more than they record.
@@ -48,7 +48,7 @@ a shared-batch scenario can be added to check it under load.
 
 ### Test data it leaves on staging
 
-- **One batch per virtual user per run** (10 with the defaults), codes starting `PERF-`, dispatch
+- **One batch per virtual user per phase** (10 with `load`, 85 with `stress`, 60 with `spike`), codes starting `PERF-`, dispatch
   number `PERF-JMETER`.
 - **One chemical-panel version per write request**, on those batches only. Real batches are not touched.
 
@@ -57,17 +57,39 @@ number `PERF-JMETER`.
 
 ---
 
-## Load profile
+## Load profiles
+
+Pick one with the **`profile`** input when you run the workflow (`load` is the default, and what
+runs after a deploy). The plan has three thread groups that run one after another; `perf/run.sh`
+sets the users, ramp-up and duration of each phase for the chosen profile.
+
+| Profile | Shape | Question it answers | Default length |
+|---|---|---|---|
+| `load` | 10 users, steady | Does the service meet NFR1 at normal peak load? | 30 s ramp + 120 s |
+| `stress` | 10 → 25 → 50 users, rising steps | Where does it start to break (p95 or errors climb)? | 3 × `step_seconds` (60 s) |
+| `spike` | 5 → 50 → 5 users, 2 s ramp into the spike | Does it survive a sudden burst, and recover after it? | 3 × `step_seconds` (30 s) |
 
 | Setting | Default | Input |
 |---|---|---|
-| Concurrent users | 10 | `users` |
-| Ramp-up | 30 s | `ramp_seconds` |
-| Duration | 120 s | `duration_seconds` |
+| Users, ramp-up, duration (`load` only) | 10, 30 s, 120 s | `users`, `ramp_seconds`, `duration_seconds` |
+| Length of each step (`stress`, `spike`) | 60 s / 30 s | `step_seconds` |
 | Pause between a user's requests | 1000 ms + up to 500 ms random | `think_ms` |
 
-About 7 requests per second at full load. That is several times what a single factory's QA lab
-generates, on a Free-tier App Service, so it finds a regression without load-testing Azure itself.
+`load` makes about 7 requests per second, several times what a single factory's QA lab generates,
+so it finds a regression without load-testing Azure itself. `stress` and `spike` go well past that on
+purpose: on the Free-tier App Service they are expected to breach the thresholds, and the point is
+to see **at which step** it happens. Run them by hand, not after every deploy; each one uses some of
+the plan's daily CPU quota.
+
+### Per-phase results
+
+The HTML report aggregates the whole run, which hides where a stress or spike run broke. After every
+run, `perf/phase_summary.py` adds a table to the run summary with one row per phase:
+
+| Phase | Peak users | Requests | Req/s | p50 (ms) | p95 (ms) | Max (ms) | Errors |
+|---|---:|---:|---:|---:|---:|---:|---:|
+
+Read it top to bottom: the step where p95 or the error rate jumps is the service's current limit.
 
 > **Agreed with QA:** _<name>, <date>_
 
@@ -98,18 +120,25 @@ All defaults live in `performance.yml`. Change them there, through review, rathe
 | `APP_HOST` | variable | already set for deployment |
 | `AUTH_HOST` | variable | the auth service's staging host, without `https://` |
 
-### Locally, against your own machine
+### From your own machine
 
-Install JMeter 5.6.3, start the auth service and this service, then:
+Install JMeter 5.6.3 (`jmeter` on your PATH, or set `JMETER=/path/to/jmeter`), then:
 
 ```bash
-jmeter -n -t perf/quality-lab.jmx -l results.jtl -e -o report \
-  -Jprotocol=http -Jhost=localhost -Jport=5003 \
-  -Jauth_protocol=http -Jauth_host=localhost -Jauth_port=5189 \
-  -Jusername=<user> -Jpassword=<password> \
-  -Jusers=5 -Jduration=60 \
-  "-Jjmeter.reportgenerator.sample_filter=^(read|write): .*"
-bash perf/check-thresholds.sh report/statistics.json 2000 1
+read -rs PERF_PASSWORD; export PERF_PASSWORD      # never put the password on the command line
+HOST=<quality lab host> AUTH_HOST=<auth host> PERF_USERNAME=<user> \
+  STEP_SECONDS=20 perf/run.sh spike               # or load / stress
+unset PERF_PASSWORD
+```
+
+Hosts are bare names, without `https://`. The report lands in `results/report/index.html` and the
+per-phase table prints at the end. Add `P95_MS=2000 MAX_ERROR_PCT=1` to also check the thresholds.
+
+Against services running locally, pass the protocol and ports through to JMeter:
+
+```bash
+HOST=localhost AUTH_HOST=localhost PERF_USERNAME=<user> perf/run.sh load \
+  -Jprotocol=http -Jport=5003 -Jauth_protocol=http -Jauth_port=5189
 ```
 
 `jmeter -t perf/quality-lab.jmx` without `-n` opens the plan in the JMeter GUI to inspect or edit it.
@@ -130,7 +159,7 @@ error rate, and the thresholds it was judged against.
 | **Dashboard → Errors** | What failed and how, by response code. Start here when the error rate fails |
 | **Dashboard → APDEX** | 1.0 is every request satisfactory; below 0.85 is worth investigating |
 | **Charts → Over Time → Response Times Over Time** | Latency during the run. A climb during ramp-up means the service struggles as users increase; a spike at the start only is a cold start |
-| **Charts → Throughput → Transactions Per Second** | Should plateau once all users are running |
+| **Charts → Throughput → Transactions Per Second** | Should plateau once all users are running. In `stress` it should rise with each step; where it stops rising while latency climbs is the limit |
 
 The artifact also contains `results.jtl` (every request) and `jmeter.log`, which explains a run that
 produced no report. A failed sign-in is the usual cause.
