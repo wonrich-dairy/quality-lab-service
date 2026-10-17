@@ -252,4 +252,8 @@ jobs:
       - name: Verify /health (database check + deployed version)
         run: bash scripts/verify-health.sh "${{ vars.APP_HOST }}" "${{ github.sha }}"
 
-  # SCRUM-43: JMeter performance job goes here (needs: deploy-staging)
+  # JMeter performance job
+  performance:
+    needs: deploy-staging
+    uses: ./.github/workflows/performance.yml
+    secrets: inherit
